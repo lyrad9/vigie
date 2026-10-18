@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,18 +23,46 @@ export const IS_WIN = process.platform === 'win32';
 export const VIA_APP = Boolean(process.versions.electron);
 
 /**
+ * The AppImage file this process runs from, or null. An AppImage runs its binary from a mount
+ * (/tmp/.mount_XXXX) that is new on every launch and gone once it quits, so whatever must outlive
+ * this process (the CLI shim, the login item, the app started by the CLI) runs the AppImage file.
+ * The runtime sets APPIMAGE and APPDIR for what it launches and every child inherits them: they
+ * only count when this binary sits in that APPDIR.
+ */
+export function appImageFile({ env = process.env, exe = process.execPath, platform = process.platform } = {}) {
+  if (platform !== 'linux' || !env.APPIMAGE || !env.APPDIR) return null;
+  let dir = env.APPDIR;
+  try {
+    dir = fs.realpathSync(dir);
+  } catch {
+    /* keep it as given */
+  }
+  const rel = path.posix.relative(dir, exe);
+  return rel && rel.split('/')[0] !== '..' && !path.posix.isAbsolute(rel) ? env.APPIMAGE : null;
+}
+
+/**
  * How to start the supervisor in the background. Through the app's shim, process.execPath is the
  * Vigie binary: launch the app itself, hidden in the tray, so there is a single supervisor. With
  * plain Node, run `vigie daemon`.
  */
-export function supervisorCommand() {
-  if (!VIA_APP) return { file: process.execPath, args: [BIN_FILE, 'daemon'], env: process.env, app: false };
-  const env = { ...process.env };
+export function supervisorCommand({
+  viaApp = VIA_APP,
+  exe = process.execPath,
+  env: parentEnv = process.env,
+  packageRoot = PACKAGE_ROOT,
+  appImage = appImageFile({ env: parentEnv, exe }),
+} = {}) {
+  if (!viaApp) return { file: exe, args: [BIN_FILE, 'daemon'], env: parentEnv, app: false };
+  const env = { ...parentEnv };
   delete env.ELECTRON_RUN_AS_NODE;
   // Packaged, the app code is resources/app.asar and the binary loads it by itself. Unpackaged
   // (`npm run app`), process.execPath is the stock electron binary and needs the app folder.
-  const packaged = path.basename(PACKAGE_ROOT) === 'app.asar';
-  return { file: process.execPath, args: packaged ? ['--hidden'] : [PACKAGE_ROOT, '--hidden'], env, app: true };
+  const packaged = path.basename(packageRoot) === 'app.asar';
+  if (!packaged) return { file: exe, args: [packageRoot, '--hidden'], env, app: true };
+  // From an AppImage, exe sits in this run's mount: start the AppImage file, which mounts its own
+  // (and whose AppRun adds --no-sandbox where the system needs it).
+  return { file: appImage || exe, args: ['--hidden'], env, app: true };
 }
 
 /** Replace the home directory prefix with ~ for display. */
