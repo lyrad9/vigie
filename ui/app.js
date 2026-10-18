@@ -325,7 +325,9 @@ function internalNote(o, internals) {
 }
 
 function portRow(o, internals = []) {
-  const http = o.kind !== 'system' ? `<a class="btn tiny quiet" href="http://localhost:${o.port}" target="_blank" rel="noreferrer">${esc(t('ports.open'))}</a>` : '';
+  // A server that is starting or restarting holds its port before it listens on it.
+  const idle = o.listening === false;
+  const http = o.kind !== 'system' && !idle ? `<a class="btn tiny quiet" href="http://localhost:${o.port}" target="_blank" rel="noreferrer">${esc(t('ports.open'))}</a>` : '';
   const action =
     o.kind === 'managed'
       ? `<a class="btn tiny quiet" href="#/s/${encodeURIComponent(o.serverId)}">${esc(t('ports.show'))}</a>`
@@ -333,12 +335,15 @@ function portRow(o, internals = []) {
         ? `<button class="btn tiny danger" type="button" data-kill="${o.pid}" data-name="${esc(o.name)}" data-port="${o.port}">${esc(t('ports.stopProcess'))}</button>`
         : '';
   const label = o.kind === 'managed' ? o.serverName.split('/')[1] : o.name;
+  const meta = idle
+    ? esc(t('ports.notListening', { state: t(`state.${o.state}`) }))
+    : `${esc(o.name)} · PID ${o.pid}${o.user ? ' · ' + esc(o.user) : ''}${o.kind === 'external' && o.command ? ' · ' + esc(o.command) : ''}`;
   return `
     <div class="prow">
       <span class="pp">:${o.port}</span>
       <div class="pbody">
         <div class="pn">${esc(label)} <span class="badge ${o.kind}">${esc(t(`badge.${o.kind}`))}</span></div>
-        <div class="pm" title="${esc(o.command)}">${esc(o.name)} · PID ${o.pid}${o.user ? ' · ' + esc(o.user) : ''}${o.kind === 'external' && o.command ? ' · ' + esc(o.command) : ''}</div>
+        <div class="pm" title="${esc(o.command)}">${meta}</div>
         ${internalNote(o, internals)}
       </div>
       <div class="pa">${http}${action}</div>
@@ -375,7 +380,8 @@ function renderPorts() {
   const s = r.summary;
   $('#ports-summary').textContent =
     t('ports.summary', { listening: s.listening, managed: s.managed, external: s.external, system: s.system }) +
-    (s.internal ? t('ports.summaryInternal', { n: s.internal }) : '');
+    (s.internal ? t('ports.summaryInternal', { n: s.internal }) : '') +
+    (s.reserved ? t('ports.summaryReserved', { n: s.reserved }) : '');
 
   const html = [];
   for (const p of state.status.projects) {
@@ -574,12 +580,39 @@ function handleSubmit(form, save) {
       await save();
       form.closest('dialog').close();
     } catch (err) {
-      formError(form, err.message);
+      if (err.code === 'PORT_CONFLICT') portConflict(form, err.details);
+      else formError(form, err.message);
     } finally {
       buttons.forEach((b) => (b.disabled = false));
     }
   });
+  form.querySelector('.form-error').addEventListener('click', (e) => {
+    const use = e.target.closest('[data-use-port]');
+    if (use) {
+      form.port.value = use.dataset.usePort;
+      formError(form, '');
+      return form.port.focus();
+    }
+    const share = e.target.closest('[data-share-port]');
+    if (share) {
+      form.dataset.sharePort = share.dataset.sharePort;
+      form.requestSubmit(form.querySelector('button[value="ok"]'));
+    }
+  });
 }
+
+/** Another server is configured on the port: offer the next free one, or sharing it on purpose. */
+function portConflict(form, d) {
+  const el = form.querySelector('.form-error');
+  const servers = d.servers.map((s) => s.serverName).join(', ');
+  const use = d.suggestedPort ? `<button class="btn tiny quiet" type="button" data-use-port="${d.suggestedPort}">${esc(t('portConflict.use', { port: d.suggestedPort }))}</button>` : '';
+  const share = `<button class="btn tiny quiet" type="button" data-share-port="${d.port}">${esc(t('portConflict.share'))}</button>`;
+  el.innerHTML = `${esc(t('portConflict.text', { port: d.port, servers }))}<span class="actions">${use}${share}</span>`;
+  el.hidden = false;
+}
+
+/** True once the user chose to share this port despite the conflict. */
+const sharesPort = (form, port) => Boolean(port) && form.dataset.sharePort === String(port);
 
 let projectEdit = null;
 let projectColor = COLORS[0];
@@ -629,6 +662,7 @@ function openProjectDialog(id = null) {
   const form = $('#form-project');
   form.reset();
   formError(form, '');
+  delete form.dataset.sharePort;
   projectEdit = id ? state.status.projects.find((p) => p.id === id) : null;
   detectedLogo = null;
   nameTouched = Boolean(projectEdit);
@@ -674,8 +708,12 @@ async function detectProject() {
     form.command.value = g.command;
     form.port.value = g.port ?? '';
   }
+  // The daemon already moved a default port that another server has, and says why.
+  const moved = !projectEdit && g?.portMovedFrom
+    ? ' ' + t('detect.portMoved', { from: g.portMovedFrom, port: g.port, by: g.portTakenBy.servers.join(', ') || t('detect.otherProgram') })
+    : '';
   $('#detect-hint').textContent = g
-    ? t('detect.found', { what: [g.framework, g.packageManager].filter(Boolean).join(' · ') || t('detect.devScript') })
+    ? t('detect.found', { what: [g.framework, g.packageManager].filter(Boolean).join(' · ') || t('detect.devScript') }) + moved
     : t('detect.none');
   renderIconChoice();
 }
@@ -690,6 +728,7 @@ handleSubmit($('#form-project'), async () => {
   }
   if (form.command.value.trim()) {
     body.servers = [{ name: form.serverName.value.trim() || 'dev', command: form.command.value.trim(), port: form.port.value || null }];
+    body.sharePort = sharesPort(form, form.port.value);
   }
   const project = await api('POST', '/projects', body);
   toast(t('toast.added', { name: project.name }));
@@ -711,6 +750,7 @@ function openServerDialog(id, projectId = null) {
   const form = $('#form-server');
   form.reset();
   formError(form, '');
+  delete form.dataset.sharePort;
   const found = id ? findServer(id) : null;
   serverEdit = found?.server || null;
   serverProject = found?.project || state.status.projects.find((p) => p.id === projectId);
@@ -753,6 +793,7 @@ handleSubmit($('#form-server'), async () => {
     autostart: form.autostart.checked,
     maxRestartAttempts: Number(form.maxRestartAttempts.value || 5),
     health: { type: form.healthType.value, path: form.healthPath.value.trim() || '/' },
+    sharePort: sharesPort(form, form.port.value),
   };
   if (serverEdit) {
     await api('PATCH', `/servers/${encodeURIComponent(serverEdit.id)}`, body);

@@ -33,7 +33,7 @@ et Linux**.
 
 ### Avec l'installateur (sans Node)
 
-1. Lance `Vigie-Setup-0.1.3.exe`, puis ouvre Vigie. L'icône apparaît dans la zone de notification.
+1. Lance `Vigie-Setup-0.1.4.exe`, puis ouvre Vigie. L'icône apparaît dans la zone de notification.
 2. Clic droit sur l'icône → **Install command-line tool**. Vigie écrit un petit lanceur
    `vigie.cmd` (et `vigie` pour Git Bash) dans `%LOCALAPPDATA%\Vigie\bin` et ajoute ce dossier
    à ton PATH utilisateur. Rien n'est modifié avant ce clic.
@@ -82,10 +82,11 @@ npm run dist         # produit dist/Vigie-Setup-<version>.exe et dist/latest.yml
 
 ```bash
 vigie register --port 3000          # dans le dossier d'un projet : devine la commande depuis package.json
+                                    # (refusé si un autre serveur a déjà ce port ; --share-port pour le partager)
 vigie start                         # démarre le serveur du dossier courant
 vigie status --json                 # tout l'état, en JSON
 vigie resolve --json                # le serveur enregistré pour ce dossier
-vigie port 3000                     # qui occupe ce port ?
+vigie port 3000                     # qui occupe ce port, et quels serveurs y sont configurés ?
 vigie ports                         # tous les ports en écoute, groupés par propriétaire
 vigie logs dev -f                   # suivre les logs en direct
 vigie start web --takeover          # arrêter le process externe qui tient le port, puis démarrer

@@ -84,6 +84,39 @@ test('classify: extra listeners of a managed server are internal, not more serve
   );
 });
 
+test('classify: a server that is booting or between restarts still holds its configured port', () => {
+  const project = normalizeProject({
+    name: 'kreafy.ai',
+    root: '.',
+    servers: [
+      { name: 'dev', command: 'next dev', port: 3000 },
+      { name: 'api', command: 'node api.js', port: 4000 },
+      { name: 'docs', command: 'astro dev', port: 4321 },
+    ],
+  });
+  const sup = new Supervisor({ config: { projects: [project] }, text: '' }, { apiPort: 7744 });
+  const [dev, api, docs] = project.servers;
+  sup.rt.get(dev.id).state = 'restarting'; // health checks failed: no process until the restart timer fires
+  Object.assign(sup.rt.get(api.id), { state: 'starting', pid: 100 }); // its worker listens before the main port does
+  sup.rt.get(docs.id).state = 'stopped';
+  const procs = new Map([
+    [100, { pid: 100, ppid: 1, name: 'cmd.exe', command: '' }],
+    [101, { pid: 101, ppid: 100, name: 'node.exe', command: 'node api.js' }],
+  ]);
+  const ports = sup.classify([{ port: 55001, pid: 101, addresses: ['127.0.0.1'] }], procs);
+  assert.deepEqual(
+    ports.map((p) => [p.port, p.kind, p.listening, p.serverName, p.state ?? null, p.internal, p.primaryPort]),
+    [
+      [55001, 'managed', true, 'kreafy.ai/api', null, true, 4000],
+      [3000, 'managed', false, 'kreafy.ai/dev', 'restarting', false, 3000],
+      [4000, 'managed', false, 'kreafy.ai/api', 'starting', false, 4000],
+    ],
+  );
+  assert.deepEqual(sup.reservations([], 3000).map((p) => p.serverName), ['kreafy.ai/dev']);
+  assert.deepEqual(sup.reservations([], 4321), [], 'a stopped server holds nothing');
+  assert.deepEqual(sup.configuredOn(4321).map((s) => [s.serverName, s.state]), [['kreafy.ai/docs', 'stopped']]);
+});
+
 test('markInternal: lowest port is primary when the configured one is not listening', () => {
   const row = (port, serverId, kind = 'managed') => ({ port, serverId, kind });
   const ports = markInternal([row(3001, 'a'), row(4000, 'b'), row(60123, 'a'), row(61000, null, 'external')], (id) => ({ a: 3000, b: null })[id]);

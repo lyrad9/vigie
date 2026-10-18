@@ -1,7 +1,7 @@
 {
   "name": "vigie",
   "productName": "Vigie",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "One supervisor for every local dev server. Your agents read the live state instead of starting the same server twice.",
   "author": "Daryl Ngako (https://lyrad.dev)",
   "type": "module",
@@ -27,8 +27,8 @@
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux",
     "check": "node scripts/check-syntax.js",
-    "test": "node --test test/core.test.js test/cli-tool.test.js test/features.test.js test/smoke.test.js",
-    "test:unit": "node --test test/core.test.js test/cli-tool.test.js test/features.test.js"
+    "test": "node --test test/core.test.js test/cli-tool.test.js test/features.test.js test/leftover.test.js test/installer.test.js test/smoke.test.js test/restore.test.js",
+    "test:unit": "node --test test/core.test.js test/cli-tool.test.js test/features.test.js test/leftover.test.js test/installer.test.js"
   },
   "build": {
     "appId": "dev.vigie.app",
@@ -54,7 +54,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Vigie",
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "include": "build/installer.nsh"
     },
     "publish": [
       {

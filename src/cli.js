@@ -14,7 +14,8 @@ Usage: vigie <command> [options]
 Inspect (read live state before launching anything)
   status [--json]                     Projects, servers, ports, PIDs, health
   resolve [--cwd <dir>] [--json]      Which registered server belongs to this directory
-  port <number> [--json]              Who owns a port (managed, external or system)
+  port <number> [--json]              Who owns a port (managed, external or system), and
+                                      which servers are configured on it
   ports [--json]                      Every listening TCP port, grouped by owner
   logs <server> [--lines 100] [-f]    Recent output; -f follows live
 
@@ -26,8 +27,10 @@ Control
 
 Register
   register [--root .] [--name <project>] [--server dev] [--command "<cmd>"] [--port <n>]
-           [--health http --health-path /] [--autostart]
-                                      Register a project + server (guesses from package.json)
+           [--health http --health-path /] [--autostart] [--share-port]
+                                      Register a project + server (guesses from package.json).
+                                      A port another server is configured on is refused
+                                      unless --share-port (servers never run at once)
   unregister <project>                Remove a project (stops its servers)
 
 App
@@ -46,6 +49,7 @@ const OPTIONS = {
   follow: { type: 'boolean', short: 'f' },
   takeover: { type: 'boolean' },
   autostart: { type: 'boolean' },
+  'share-port': { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
   version: { type: 'boolean', short: 'v' },
   lines: { type: 'string', short: 'n' },
@@ -215,6 +219,10 @@ export async function main(argv) {
     if (err.code === 'PORT_IN_USE' && err.details?.owners?.some((o) => o.kind === 'external')) {
       console.error(c.dim('Re-run with --takeover to stop that process and start the server under Vigie.'));
     }
+    if (err.code === 'PORT_CONFLICT') {
+      const free = err.details?.suggestedPort;
+      console.error(c.dim(`${free ? `Use --port ${free}` : 'Pick another --port'}, or add --share-port if these servers never run at the same time.`));
+    }
     if (err.details?.candidates) console.error(c.dim(`candidates: ${err.details.candidates.join(', ')}`));
     process.exitCode = 1;
   }
@@ -242,7 +250,9 @@ async function run(cmd, rest, values) {
       if (values.json) return printJson(r);
       if (!r.project) {
         console.log(`No registered project contains ${r.cwd}.`);
-        if (r.inspect?.suggestion) console.log(c.dim(`Suggested: vigie register --command "${r.inspect.suggestion.command}" --port ${r.inspect.suggestion.port}`));
+        const g = r.inspect?.suggestion;
+        if (g) console.log(c.dim(`Suggested: vigie register --command "${g.command}" --port ${g.port}`));
+        if (g?.portMovedFrom) console.log(c.dim(`  (port ${g.portMovedFrom} is taken by ${takenBy(g.portTakenBy)})`));
         return;
       }
       console.log(`${c.bold(r.project.name)}  ${c.dim(tildify(r.project.root))}`);
@@ -283,8 +293,12 @@ async function run(cmd, rest, values) {
       if (!port) throw new Error('usage: vigie port <number>');
       const r = await api('GET', `/port/${port}`);
       if (values.json) return printJson(r);
-      if (!r.owners.length) return console.log(`Port ${port} is free.`);
       for (const o of r.owners) printPortEntry(o);
+      // Stopped or failed servers do not hold the port, but they will want it back when started.
+      const holders = new Set(r.owners.map((o) => o.serverId));
+      const idle = (r.configured || []).filter((s) => !holders.has(s.serverId));
+      if (!r.owners.length) console.log(`Port ${port} is free${idle.length ? ' right now' : ''}.`);
+      if (idle.length) console.log(c.dim(`  Configured for ${idle.map((s) => `${s.serverName} (${s.state})`).join(', ')}: give a new server another port.`));
       return;
     }
 
@@ -293,7 +307,8 @@ async function run(cmd, rest, values) {
       if (values.json) return printJson(r);
       const s = r.summary;
       const internal = s.internal ? ` (+${s.internal} internal)` : '';
-      console.log(`${s.listening} listening · ${s.managed} managed${internal} · ${s.external} external · ${s.system} system\n`);
+      const reserved = s.reserved ? ` · ${s.reserved} reserved` : '';
+      console.log(`${s.listening} listening · ${s.managed} managed${internal}${reserved} · ${s.external} external · ${s.system} system\n`);
       const internals = r.ports.filter((p) => p.internal);
       const shown = new Set();
       for (const kind of ['managed', 'external', 'system']) {
@@ -334,7 +349,9 @@ async function run(cmd, rest, values) {
 function printPortEntry(o, internals = []) {
   const badge = { managed: c.green('Managed'), external: c.yellow('External'), system: c.dim('Protected') }[o.kind];
   const who = o.serverName ? c.bold(o.serverName) : o.name;
-  console.log(`  ${pad(':' + o.port, 7)} ${badge.padEnd(useColor ? 18 : 9)} ${who} ${c.dim(`pid ${o.pid}${o.user ? ' · ' + o.user : ''}`)}`);
+  const meta = o.listening === false ? c.yellow(`not listening · ${o.state}`) : c.dim(`pid ${o.pid}${o.user ? ' · ' + o.user : ''}`);
+  console.log(`  ${pad(':' + o.port, 7)} ${badge.padEnd(useColor ? 18 : 9)} ${who} ${meta}`);
+  if (o.listening === false) console.log(c.dim(`          reserved: ${o.serverName} is ${o.state}, so this port is not free`));
   if (o.internal) console.log(c.dim(`          internal port of ${o.serverName}, main port :${o.primaryPort}`));
   if (o.command && o.kind !== 'system') console.log(c.dim(`          ${o.command.slice(0, 110)}`));
   if (internals.length) {
@@ -377,34 +394,49 @@ function stripAnsi(s) {
   return s.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, '');
 }
 
+/** Who holds a framework's default port: the servers configured on it, else a listening program. */
+const takenBy = (t) => (t.servers.length ? t.servers.join(', ') : 'a program outside Vigie');
+
 async function register(values) {
   const root = path.resolve(values.root || process.cwd());
-  const info = await api('GET', `/inspect?root=${enc(root)}`);
+  const wanted = values.port ? Number(values.port) : null;
+  // With a port, the guessed command pins it (next dev -p 3001). Without one, the daemon moves a
+  // framework default that another server already has to the next free port.
+  const inspect = (port) => api('GET', `/inspect?root=${enc(root)}${port ? `&port=${port}` : ''}`);
+  let info = await inspect(wanted);
   if (!info.exists) throw new Error(`directory not found: ${root}`);
+  const status = await api('GET', '/status');
+  const existing = status.projects.find((p) => path.resolve(p.root).toLowerCase() === root.toLowerCase());
+  const name = values.server || info.suggestion?.name || 'dev';
+  const same = existing?.servers.find((s) => s.name === name);
+  // Registering a server again keeps its port, unless --port says otherwise.
+  if (!wanted && same?.port && info.suggestion && info.suggestion.port !== same.port) info = await inspect(same.port);
   const guess = info.suggestion || {};
   const command = values.command || guess.command;
   if (!command) throw new Error('could not guess a command; pass --command "<cmd>"');
-  const port = values.port ? Number(values.port) : values.command ? null : guess.port ?? null;
+  const port = wanted ?? (values.command ? null : guess.port ?? null);
+  const moved = port && port === guess.port && guess.portMovedFrom ? guess : null;
+  const sharePort = Boolean(values['share-port']);
   const server = {
-    name: values.server || guess.name || 'dev',
+    name,
     command,
     port,
     autostart: Boolean(values.autostart),
     health: { type: values.health || (port ? 'tcp' : 'none'), path: values['health-path'] || '/' },
   };
 
-  const status = await api('GET', '/status');
-  const existing = status.projects.find((p) => path.resolve(p.root).toLowerCase() === root.toLowerCase());
   let result;
   if (existing) {
-    const same = existing.servers.find((s) => s.name === server.name);
-    result = same ? await api('PATCH', `/servers/${enc(same.id)}`, server) : await api('POST', `/projects/${enc(existing.id)}/servers`, server);
+    const body = { ...server, sharePort };
+    result = same ? await api('PATCH', `/servers/${enc(same.id)}`, body) : await api('POST', `/projects/${enc(existing.id)}/servers`, body);
     result = { project: existing.name, server: result };
   } else {
-    const project = await api('POST', '/projects', { name: values.name || info.name, root, servers: [server] });
+    const project = await api('POST', '/projects', { name: values.name || info.name, root, servers: [server], sharePort });
     result = { project: project.name, server: project.servers[0] };
   }
+  if (moved) Object.assign(result, { portMovedFrom: moved.portMovedFrom, portTakenBy: moved.portTakenBy });
   if (values.json) return printJson(result);
   console.log(`Registered ${c.bold(`${result.project}/${result.server.name}`)}: ${result.server.command}${result.server.port ? ` on :${result.server.port}` : ''}`);
+  if (moved) console.log(c.dim(`Port ${moved.portMovedFrom} is taken by ${takenBy(moved.portTakenBy)}, so :${port} was picked.`));
   console.log(c.dim(`Start it with: vigie start ${result.project}/${result.server.name}`));
 }
