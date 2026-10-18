@@ -35,8 +35,8 @@ jobs:
           - { os: ubuntu-latest, node: 24 }
           - { os: windows-latest, node: 24 }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -47,20 +47,20 @@ jobs:
         run: npm test
 
   website:
-    name: Website · lint, types, build
+    name: Website · lint, types, build, endpoints
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: website/package-lock.json
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: website/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('website/package-lock.json') }}-${{ hashFiles('website/src/**') }}
@@ -69,6 +69,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+      - name: Negotiation and endpoint tests
+        run: npm test
 
   installer:
     name: Windows installer
@@ -78,8 +80,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -88,7 +90,7 @@ jobs:
         run: npx electron-builder --win --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vigie-windows-installer
           path: dist/*.exe

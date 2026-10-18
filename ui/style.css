@@ -365,6 +365,7 @@ code { font-family: var(--mono); font-size: 12px; }
 .prow .pp { font: 600 13px var(--mono); }
 .prow .pn { font-weight: 550; display: flex; gap: 8px; align-items: center; }
 .prow .pm { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prow .pi { color: var(--muted); font: 11.5px var(--mono); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prow .pa { display: flex; gap: 6px; }
 .badge { font-size: 10.5px; font-weight: 650; padding: 1px 7px; border-radius: 99px; letter-spacing: 0.02em; }
 .badge.managed { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }

@@ -262,7 +262,7 @@ app.whenReady().then(async () => {
     return;
   }
   try {
-    refreshCli(CLI_SCRIPT);
+    refreshCli(CLI_SCRIPT, { isPackaged: app.isPackaged });
   } catch {
     /* the shim keeps its old target; reinstalling from the tray fixes it */
   }

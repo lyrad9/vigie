@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans } from "next/font/google";
 import localFont from "next/font/local";
+import { openGraphBase } from "@/lib/metadata.ts";
 import "./globals.css";
 
 // The only two families on the site: Satoshi for headings, DM Sans for paragraphs.
@@ -16,16 +17,20 @@ const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://vigie.lyrad.dev"),
-  title: "Vigie — un seul superviseur pour tous vos serveurs locaux",
+  title: {
+    default: "Vigie — superviseur de serveurs de dev pour agents IA",
+    template: "%s · Vigie",
+  },
+  applicationName: "Vigie",
   authors: [{ name: "Daryl Ngako", url: "https://lyrad.dev" }],
   creator: "Daryl Ngako",
   description:
-    "Vos agents relancent sans cesse le même serveur. Vigie le lance une fois, et chaque agent, terminal et fenêtre lit le même état en direct : port, PID, santé.",
+    "Vigie, le superviseur de serveurs de dev locaux pour agents IA : il lance chaque serveur une fois, et Claude Code, Codex, Cursor et vos terminaux lisent le même état en direct (port, PID, santé). Gratuit, open source, pour Windows.",
+  keywords: ["Vigie", "superviseur de serveurs de dev", "dev server supervisor", "agents IA", "Claude Code", "Codex", "Cursor", "port déjà utilisé"],
   openGraph: {
-    title: "Vigie — un seul superviseur pour tous vos serveurs locaux",
+    ...openGraphBase,
+    title: "Vigie — superviseur de serveurs de dev pour agents IA",
     description: "Inspecter d'abord, lancer seulement si besoin. Gratuit et open source, pour Windows.",
-    type: "website",
-    images: ["/screens/app-light.png"],
   },
 };
 

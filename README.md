@@ -44,7 +44,10 @@ réécrit au démarrage suivant. **Uninstall command-line tool** (même menu) re
 l'entrée du PATH.
 
 Sous macOS et Linux, le même menu crée `~/.config/vigie/bin/vigie` et un lien symbolique
-`~/.local/bin/vigie` (ce dossier doit être dans ton PATH).
+`~/.local/bin/vigie` (ce dossier doit être dans ton PATH). Avec l'AppImage, le lanceur exécute le
+fichier `.AppImage` lui-même (son point de montage change à chaque lancement), via
+`~/.config/vigie/bin/vigie-appimage.mjs` : il fonctionne donc aussi quand l'app est fermée, tant que
+le fichier `.AppImage` reste à sa place.
 
 ### Depuis les sources
 

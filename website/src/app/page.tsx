@@ -20,10 +20,17 @@ import { Footer } from "@/components/footer";
 import { Hero } from "@/components/hero";
 import { Nav } from "@/components/nav";
 import { Steps } from "@/components/steps";
+import { homeJsonLd, serializeJsonLd } from "@/lib/jsonld.ts";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/", types: { "text/markdown": "/index.md" } },
+};
 
 export default function Home() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(homeJsonLd()) }} />
       <Nav />
       <main>
         <Hero />

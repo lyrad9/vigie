@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normalizeServer } from '../src/config.js';
+import { normalizeProject, normalizeServer } from '../src/config.js';
 import { lastLines } from '../src/logs.js';
 import { descendantsOf, parseLsof, parseNetstat, parseSs } from '../src/platform.js';
+import { Supervisor, markInternal } from '../src/supervisor.js';
 
 test('netstat: keeps listeners only, whatever the locale', () => {
   const text = `
@@ -56,6 +57,45 @@ test('descendantsOf maps grandchildren to their root', () => {
   const owner = descendantsOf([10], procs);
   assert.equal(owner.get(12), 10);
   assert.equal(owner.has(20), false);
+});
+
+test('classify: extra listeners of a managed server are internal, not more servers', () => {
+  const project = normalizeProject({ name: 'kreafy', root: '.', servers: [{ name: 'web', command: 'npm run dev', port: 3000 }] });
+  const sup = new Supervisor({ config: { projects: [project] }, text: '' }, { apiPort: 7744 });
+  const web = project.servers[0];
+  sup.rt.get(web.id).pid = 100; // the shell Vigie spawned
+  const proc = (pid, ppid, name) => [pid, { pid, ppid, session: 1, name, user: '', command: `${name} --dev` }];
+  const procs = new Map([proc(100, 1, 'cmd.exe'), proc(14280, 100, 'node.exe'), proc(900, 1, 'node.exe')]);
+  const listeners = [
+    { port: 3000, pid: 14280, addresses: ['::'] },
+    { port: 5173, pid: 900, addresses: ['0.0.0.0'] },
+    { port: 55334, pid: 14280, addresses: ['127.0.0.1'] },
+    { port: 55422, pid: 14280, addresses: ['127.0.0.1'] },
+  ];
+  const ports = sup.classify(listeners, procs);
+  assert.deepEqual(
+    ports.map((p) => [p.port, p.kind, p.serverName, p.internal, p.primaryPort]),
+    [
+      [3000, 'managed', 'kreafy/web', false, 3000],
+      [5173, 'external', null, false, null],
+      [55334, 'managed', 'kreafy/web', true, 3000],
+      [55422, 'managed', 'kreafy/web', true, 3000],
+    ],
+  );
+});
+
+test('markInternal: lowest port is primary when the configured one is not listening', () => {
+  const row = (port, serverId, kind = 'managed') => ({ port, serverId, kind });
+  const ports = markInternal([row(3001, 'a'), row(4000, 'b'), row(60123, 'a'), row(61000, null, 'external')], (id) => ({ a: 3000, b: null })[id]);
+  assert.deepEqual(
+    ports.map((p) => [p.port, p.internal, p.primaryPort]),
+    [
+      [3001, false, 3001],
+      [4000, false, 4000],
+      [60123, true, 3001],
+      [61000, false, null],
+    ],
+  );
 });
 
 test('normalizeServer fills defaults and turns off health checks without a port', () => {
