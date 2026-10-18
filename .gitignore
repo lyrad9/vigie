@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+.dev-home/
+
+.env*
+.DS_Store
+.claude/
+.vscode/
+.impeccable/

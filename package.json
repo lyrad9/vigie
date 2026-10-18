@@ -1,0 +1,74 @@
+{
+  "name": "vigie",
+  "productName": "Vigie",
+  "version": "0.1.0",
+  "description": "One supervisor for every local dev server. Your agents read the live state instead of starting the same server twice.",
+  "author": "Daryl Ngako (https://lyrad.dev)",
+  "type": "module",
+  "main": "desktop/main.js",
+  "bin": {
+    "vigie": "bin/vigie.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "ui",
+    "skill"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node bin/vigie.js daemon",
+    "dev": "node --watch-path=src --watch-path=ui bin/vigie.js daemon",
+    "app": "electron .",
+    "icons": "node scripts/make-icons.js",
+    "dist": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "build": {
+    "appId": "dev.vigie.app",
+    "productName": "Vigie",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "bin/**",
+      "src/**",
+      "ui/**",
+      "skill/**",
+      "desktop/**",
+      "package.json"
+    ],
+    "icon": "desktop/icons/icon.png",
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Vigie"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development"
+    }
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3"
+  }
+}

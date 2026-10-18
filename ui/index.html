@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vigie</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    try {
+      const t = localStorage.getItem('vigie-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    } catch {}
+  </script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="icon.svg" alt="" width="26" height="26" />
+        <span class="brand-name">Vigie</span>
+        <span class="brand-count" id="run-count"></span>
+      </div>
+
+      <nav class="projects" id="projects" aria-label="Projects"></nav>
+
+      <div class="side-footer">
+        <button class="side-btn" id="btn-add-project" type="button">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
+          Add project
+        </button>
+        <button class="side-btn" id="btn-ports" type="button">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" /><circle cx="5" cy="4" r="1.2" /><circle cx="10" cy="8" r="1.2" /><circle cx="7" cy="12" r="1.2" /></svg>
+          View ports
+        </button>
+        <button class="side-btn" id="btn-theme" type="button" aria-label="Change theme">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path d="M8 2.5v11" /><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" class="fill" /></svg>
+          <span id="theme-label">Theme: System</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="offline" id="offline" hidden>Lost connection to the Vigie daemon. Reconnecting…</div>
+
+      <!-- Server detail -->
+      <section class="view" id="view-server" hidden>
+        <header class="head">
+          <div class="head-title">
+            <h1 id="srv-name"></h1>
+            <div class="crumb" id="srv-crumb"></div>
+          </div>
+          <div class="head-actions">
+            <a class="btn ghost" id="srv-open" target="_blank" rel="noreferrer">Open ↗</a>
+            <button class="btn ghost" id="srv-edit" type="button">Edit</button>
+            <button class="btn ghost" id="srv-restart" type="button">Restart</button>
+            <button class="btn primary" id="srv-toggle" type="button">Start</button>
+          </div>
+        </header>
+
+        <div class="conflict" id="conflict" hidden>
+          <div>
+            <strong>Running outside Vigie</strong>
+            <p id="conflict-text"></p>
+          </div>
+          <div class="conflict-actions">
+            <button class="btn ghost" id="conflict-kill" type="button">Stop process</button>
+            <button class="btn primary" id="conflict-takeover" type="button">Move to Vigie</button>
+          </div>
+        </div>
+
+        <dl class="stats">
+          <div><dt>Status</dt><dd><span class="pill" id="st-state"></span></dd></div>
+          <div><dt>PID</dt><dd id="st-pid"></dd></div>
+          <div><dt>Port</dt><dd id="st-port"></dd></div>
+          <div><dt>Uptime</dt><dd id="st-uptime" data-uptime></dd></div>
+          <div><dt>Restarts</dt><dd id="st-restarts"></dd></div>
+          <div><dt>Health</dt><dd id="st-health"></dd></div>
+        </dl>
+
+        <div class="error-line" id="srv-error" hidden></div>
+
+        <div class="terminal">
+          <div class="term-bar">
+            <code class="term-cmd" id="srv-command"></code>
+            <label class="toggle"><input type="checkbox" id="term-follow" checked /> Follow</label>
+            <button class="btn tiny" id="term-clear" type="button">Clear</button>
+          </div>
+          <div class="term-body" id="term-body">
+            <pre class="term" id="term"></pre>
+            <div class="term-empty" id="term-empty" hidden>
+              <p class="term-empty-title">Server is stopped</p>
+              <p id="term-empty-text"></p>
+              <button class="btn primary" id="term-start" type="button">Start</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ports -->
+      <section class="view" id="view-ports" hidden>
+        <header class="head">
+          <div class="head-title">
+            <h1>Active ports</h1>
+            <div class="crumb" id="ports-summary">Scanning…</div>
+          </div>
+          <div class="head-actions">
+            <input class="search" id="ports-search" type="search" placeholder="Search ports, processes…" aria-label="Search ports" />
+            <button class="btn ghost" id="ports-refresh" type="button">Refresh</button>
+          </div>
+        </header>
+        <div class="ports" id="ports-groups"></div>
+        <p class="footnote" id="ports-foot"></p>
+      </section>
+
+      <!-- Empty -->
+      <section class="view empty" id="view-empty" hidden>
+        <img src="icon.svg" alt="" width="56" height="56" />
+        <h1>One supervisor for every local server</h1>
+        <p>Register a project once. Every agent, terminal and tab then reads the same live state: what is running, on which port, under which PID, and whether it is healthy.</p>
+        <button class="btn primary" id="empty-add" type="button">Add your first project</button>
+        <p class="hint">or from a project folder: <code>vigie register</code></p>
+      </section>
+    </main>
+  </div>
+
+  <!-- Project dialog -->
+  <dialog id="dlg-project">
+    <form method="dialog" id="form-project">
+      <h2 id="dlg-project-title">Add project</h2>
+      <label>Folder
+        <input name="root" required placeholder="C:\Users\you\code\my-app" autocomplete="off" spellcheck="false" />
+        <small id="detect-hint">Paste the project path. Vigie reads package.json to fill the rest.</small>
+      </label>
+      <div class="row">
+        <label>Name <input name="name" required autocomplete="off" /></label>
+        <label class="color-field">Color
+          <div class="swatches" id="swatches"></div>
+        </label>
+      </div>
+      <fieldset id="first-server">
+        <legend>First server</legend>
+        <div class="row">
+          <label>Name <input name="serverName" value="dev" autocomplete="off" /></label>
+          <label>Port <input name="port" type="number" min="1" max="65535" placeholder="3000" /></label>
+        </div>
+        <label>Command <input name="command" placeholder="npm run dev" autocomplete="off" spellcheck="false" /></label>
+      </fieldset>
+      <p class="form-error" hidden></p>
+      <div class="dlg-actions">
+        <button class="btn danger" type="button" id="project-delete" hidden>Remove project</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok" id="project-submit">Add project</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Server dialog -->
+  <dialog id="dlg-server">
+    <form method="dialog" id="form-server">
+      <h2 id="dlg-server-title">Edit server</h2>
+      <div class="row">
+        <label>Name <input name="name" required autocomplete="off" /></label>
+        <label>Port <input name="port" type="number" min="1" max="65535" /></label>
+      </div>
+      <label>Command <input name="command" required autocomplete="off" spellcheck="false" /></label>
+      <label>Working directory <input name="cwd" placeholder="(project root)" autocomplete="off" spellcheck="false" />
+        <small>Relative to the project folder.</small>
+      </label>
+      <div class="row">
+        <label>Health check
+          <select name="healthType">
+            <option value="tcp">TCP port</option>
+            <option value="http">HTTP path</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+        <label>Path <input name="healthPath" placeholder="/" autocomplete="off" /></label>
+        <label>Max restarts <input name="maxRestartAttempts" type="number" min="0" max="50" /></label>
+      </div>
+      <label>Environment <textarea name="env" rows="3" placeholder="KEY=value" spellcheck="false"></textarea></label>
+      <label class="check"><input type="checkbox" name="autostart" /> Start when Vigie starts</label>
+      <p class="form-error" hidden></p>
+      <div class="dlg-actions">
+        <button class="btn danger" type="button" id="server-delete">Remove server</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Confirm dialog -->
+  <dialog id="dlg-confirm">
+    <form method="dialog">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button class="btn ghost" value="cancel">Cancel</button>
+        <button class="btn danger" value="ok" id="confirm-ok">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

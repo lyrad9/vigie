@@ -1,0 +1,635 @@
+import { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+import path from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
+import { VigieError } from './errors.js';
+import { checkHealth } from './health.js';
+import { LogBuffer } from './logs.js';
+import { IS_WIN, LOG_DIR, STATE_FILE, VERSION } from './paths.js';
+import { descendantsOf, isProtected, killTree, listListeners, listProcesses } from './platform.js';
+import { PROJECT_COLORS, normalizeProject, normalizeServer, saveConfig } from './config.js';
+
+const ACTIVE = new Set(['starting', 'running', 'unhealthy', 'restarting']);
+const dim = (s) => `\x1b[2m${s}\x1b[0m`;
+
+export class Supervisor extends EventEmitter {
+  /** @param {{config: any, text: string}} loaded */
+  constructor(loaded, { apiPort }) {
+    super();
+    this.config = loaded.config;
+    this.configText = loaded.text;
+    this.apiPort = apiPort;
+    this.rt = new Map();
+    this.shuttingDown = false;
+    this.persistTimer = null;
+    this.syncRuntime();
+  }
+
+  // ---------------------------------------------------------------- lookup
+
+  lookup(serverId) {
+    for (const project of this.config.projects) {
+      const server = project.servers.find((s) => s.id === serverId);
+      if (server) return { project, server };
+    }
+    return null;
+  }
+
+  project(ref) {
+    const p = this.config.projects.find((x) => x.id === ref || x.name.toLowerCase() === String(ref).toLowerCase());
+    if (!p) throw new VigieError('NOT_FOUND', `No project matches "${ref}"`, undefined, 404);
+    return p;
+  }
+
+  /**
+   * Resolve a server reference: an id, "project/server", ":3000" or "3000",
+   * a unique server name, or a project name that has exactly one server.
+   */
+  find(ref) {
+    ref = String(ref ?? '').trim();
+    if (!ref) throw new VigieError('NOT_FOUND', 'No server given');
+    const all = this.config.projects.flatMap((project) => project.servers.map((server) => ({ project, server })));
+    const lc = ref.toLowerCase();
+    const byId = all.find((x) => x.server.id === ref);
+    if (byId) return byId;
+    let matches;
+    if (/^:?\d+$/.test(ref)) {
+      const port = Number(ref.replace(':', ''));
+      matches = all.filter((x) => x.server.port === port);
+    } else if (ref.includes('/')) {
+      const [p, s] = lc.split('/');
+      matches = all.filter((x) => x.project.name.toLowerCase() === p && x.server.name.toLowerCase() === s);
+    } else {
+      matches = all.filter((x) => x.server.name.toLowerCase() === lc);
+      if (!matches.length) matches = all.filter((x) => x.project.name.toLowerCase() === lc);
+    }
+    if (matches.length === 1) return matches[0];
+    if (!matches.length) throw new VigieError('NOT_FOUND', `No server matches "${ref}"`, undefined, 404);
+    throw new VigieError('AMBIGUOUS', `"${ref}" matches ${matches.length} servers; use project/server`, {
+      candidates: matches.map((x) => `${x.project.name}/${x.server.name}`),
+    });
+  }
+
+  /** Find the project whose root contains `cwd` (deepest match wins). */
+  resolveCwd(cwd) {
+    const norm = (p) => {
+      const r = path.resolve(p);
+      return IS_WIN ? r.toLowerCase() : r;
+    };
+    const target = norm(cwd);
+    let best = null;
+    for (const project of this.config.projects) {
+      const root = norm(project.root);
+      if ((target === root || target.startsWith(root + path.sep)) && (!best || root.length > norm(best.root).length)) best = project;
+    }
+    return best;
+  }
+
+  // ------------------------------------------------------------------ views
+
+  view(serverId) {
+    const found = this.lookup(serverId);
+    if (!found) return null;
+    const { project, server } = found;
+    const r = this.rt.get(serverId);
+    return {
+      id: server.id,
+      projectId: project.id,
+      name: server.name,
+      command: server.command,
+      cwd: server.cwd,
+      port: server.port,
+      url: server.port ? `http://localhost:${server.port}` : null,
+      env: server.env,
+      autostart: server.autostart,
+      health: server.health,
+      maxRestartAttempts: server.maxRestartAttempts,
+      state: r.state,
+      healthy: r.healthy,
+      pid: r.pid,
+      startedAt: r.startedAt,
+      restartCount: r.restartCount,
+      lastExitCode: r.lastExitCode,
+      lastError: r.lastError,
+      lastHealthAt: r.lastHealthAt,
+    };
+  }
+
+  status() {
+    return {
+      version: VERSION,
+      apiPort: this.apiPort,
+      platform: process.platform,
+      projects: this.config.projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        root: p.root,
+        color: p.color,
+        servers: p.servers.map((s) => this.view(s.id)),
+      })),
+    };
+  }
+
+  // -------------------------------------------------------------- runtime
+
+  syncRuntime() {
+    const ids = new Set();
+    for (const p of this.config.projects) {
+      for (const s of p.servers) {
+        ids.add(s.id);
+        if (!this.rt.has(s.id)) this.rt.set(s.id, this.newRuntime(s.id));
+      }
+    }
+    for (const [id, r] of this.rt) {
+      if (ids.has(id)) continue;
+      r.removed = true;
+      clearTimeout(r.timers.restart);
+      clearTimeout(r.timers.health);
+      if (r.pid) killTree(r.pid, { force: true, group: !IS_WIN });
+      r.logs.close();
+      this.rt.delete(id);
+    }
+  }
+
+  newRuntime(id) {
+    return {
+      id,
+      gen: 0,
+      state: 'stopped',
+      child: null,
+      pid: null,
+      startedAt: null,
+      restartCount: 0,
+      lastExitCode: null,
+      lastError: null,
+      healthy: null,
+      healthFailures: 0,
+      lastHealthAt: null,
+      stopRequested: false,
+      removed: false,
+      stopWaiters: [],
+      timers: { health: null, restart: null },
+      logs: new LogBuffer(path.join(LOG_DIR, `${id}.log`)),
+    };
+  }
+
+  setState(r, state) {
+    r.state = state;
+    if (r.removed) return;
+    this.emit('server', this.view(r.id));
+    this.schedulePersist();
+  }
+
+  log(r, text) {
+    r.logs.append(text);
+    if (!r.removed) this.emit('log', { id: r.id, text });
+  }
+
+  // -------------------------------------------------------------- control
+
+  async start(ref, { takeover = false } = {}) {
+    const { project, server } = this.find(ref);
+    const r = this.rt.get(server.id);
+    if (r.child && ACTIVE.has(r.state)) return this.view(server.id);
+    if (r.state === 'stopping') await this.waitExit(r, 10000);
+    clearTimeout(r.timers.restart);
+    if (server.port) await this.ensurePortFree(server, takeover);
+    r.restartCount = 0;
+    this.spawnServer(project, server, r);
+    return this.view(server.id);
+  }
+
+  async stop(ref) {
+    const { server } = this.find(ref);
+    const r = this.rt.get(server.id);
+    clearTimeout(r.timers.restart);
+    clearTimeout(r.timers.health);
+    if (!r.child) {
+      r.startedAt = null;
+      if (r.state !== 'stopped') this.setState(r, 'stopped');
+      return this.view(server.id);
+    }
+    r.stopRequested = true;
+    this.setState(r, 'stopping');
+    this.log(r, dim('\r\n[vigie] stopping…\r\n'));
+    const exited = this.waitExit(r, IS_WIN ? 8000 : 5000);
+    await killTree(r.pid, { group: !IS_WIN });
+    if (!(await exited)) {
+      await killTree(r.pid, { force: true, group: !IS_WIN });
+      if (!(await this.waitExit(r, 3000))) {
+        // Process refuses to report exit; forget it rather than wedge the UI.
+        r.gen++;
+        r.child = null;
+        r.pid = null;
+        r.startedAt = null;
+        this.setState(r, 'stopped');
+      }
+    }
+    return this.view(server.id);
+  }
+
+  async restart(ref) {
+    const { server } = this.find(ref);
+    await this.stop(server.id);
+    return this.start(server.id);
+  }
+
+  async stopAll() {
+    const ids = [...this.rt.values()].filter((r) => r.child || r.state !== 'stopped').map((r) => r.id);
+    await Promise.allSettled(ids.map((id) => this.stop(id)));
+    return this.status();
+  }
+
+  clearLogs(ref) {
+    const { server } = this.find(ref);
+    this.rt.get(server.id).logs.clear();
+    this.emit('server', this.view(server.id));
+  }
+
+  logs(ref, maxChars) {
+    const { server } = this.find(ref);
+    return this.rt.get(server.id).logs.tail(maxChars);
+  }
+
+  waitExit(r, ms) {
+    return new Promise((resolve) => {
+      if (!r.child) return resolve(true);
+      const timer = setTimeout(() => resolve(false), ms);
+      r.stopWaiters.push(() => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
+  }
+
+  managedPids() {
+    return [...this.rt.values()].filter((r) => r.pid).map((r) => r.pid);
+  }
+
+  /** Throws PORT_IN_USE unless the port is free; with takeover, stops the external owner first. */
+  async ensurePortFree(server, takeover) {
+    const owners = await this.portOwners(server.port);
+    if (!owners.length) return;
+    const managed = owners.find((o) => o.kind === 'managed');
+    if (managed) {
+      throw new VigieError('PORT_IN_USE', `Port ${server.port} is used by Vigie server ${managed.serverName}`, { port: server.port, owners }, 409);
+    }
+    if (!takeover) {
+      const o = owners[0];
+      throw new VigieError('PORT_IN_USE', `Port ${server.port} is used by ${o.name || 'an unknown process'} (pid ${o.pid}), started outside Vigie`, { port: server.port, owners }, 409);
+    }
+    const blocked = owners.find((o) => o.kind === 'system');
+    if (blocked) throw new VigieError('PROTECTED', `Port ${server.port} belongs to protected process ${blocked.name} (pid ${blocked.pid})`, { port: server.port, owners }, 403);
+    for (const o of owners) await killTree(o.pid, { force: false });
+    for (let i = 0; i < 25; i++) {
+      if (!(await listListeners()).some((l) => l.port === server.port)) return;
+      if (i === 10) for (const o of owners) await killTree(o.pid, { force: true });
+      await new Promise((res) => setTimeout(res, 200));
+    }
+    throw new VigieError('PORT_IN_USE', `Port ${server.port} is still in use after stopping its owner`, { port: server.port }, 409);
+  }
+
+  spawnServer(project, server, r) {
+    const cwd = path.resolve(project.root, server.cwd || '.');
+    if (!fs.existsSync(cwd)) {
+      r.lastError = `Directory not found: ${cwd}`;
+      this.setState(r, 'failed');
+      throw new VigieError('CWD_NOT_FOUND', r.lastError);
+    }
+    const env = {
+      ...process.env,
+      ...server.env,
+      VIGIE: '1',
+      VIGIE_SERVER: server.name,
+      VIGIE_PROJECT: project.name,
+      FORCE_COLOR: process.env.FORCE_COLOR ?? '1',
+    };
+    if (server.port) env.PORT = String(server.port);
+    // NO_COLOR inherited from the daemon's shell would fight FORCE_COLOR (Node warns about it).
+    if (!server.env.NO_COLOR) delete env.NO_COLOR;
+
+    const gen = ++r.gen;
+    const shell = IS_WIN ? null : process.env.SHELL || '/bin/sh';
+    const child = IS_WIN
+      ? spawn(server.command, { cwd, env, shell: true, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+      : spawn(shell, ['-lc', server.command], { cwd, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+
+    r.child = child;
+    r.pid = child.pid ?? null;
+    r.startedAt = new Date().toISOString();
+    r.stopRequested = false;
+    r.healthy = null;
+    r.healthFailures = 0;
+    r.lastError = null;
+    r.lastExitCode = null;
+    this.log(r, dim(`[vigie] starting: ${server.command}`) + '\r\n' + dim(`[vigie] cwd: ${cwd}${server.port ? `  PORT=${server.port}` : ''}`) + '\r\n\r\n');
+
+    for (const stream of [child.stdout, child.stderr]) {
+      const decoder = new StringDecoder('utf8');
+      stream.on('data', (d) => this.log(r, decoder.write(d)));
+    }
+    let exited = false;
+    const onExit = (code, signal) => {
+      if (exited) return;
+      exited = true;
+      this.handleExit(r, gen, code, signal);
+    };
+    child.once('exit', onExit);
+    child.once('error', (err) => {
+      r.lastError = err.message;
+      this.log(r, `\r\n[vigie] ${err.message}\r\n`);
+      if (!child.pid) onExit(null, null);
+    });
+
+    const checked = server.port && server.health.type !== 'none';
+    this.setState(r, checked ? 'starting' : 'running');
+    if (checked) this.scheduleHealth(r, gen, 1000);
+  }
+
+  handleExit(r, gen, code, signal) {
+    if (gen !== r.gen) return;
+    clearTimeout(r.timers.health);
+    r.child = null;
+    r.pid = null;
+    r.lastExitCode = code ?? signal ?? null;
+    this.log(r, dim(`\r\n[vigie] process exited (${code ?? signal ?? 'unknown'})`) + '\r\n');
+    for (const resolve of r.stopWaiters.splice(0)) resolve();
+    if (r.stopRequested || this.shuttingDown || r.removed) {
+      r.startedAt = null;
+      this.setState(r, 'stopped');
+      return;
+    }
+    this.scheduleRestart(r, `exited with code ${code ?? signal}`);
+  }
+
+  scheduleRestart(r, reason) {
+    const found = this.lookup(r.id);
+    if (!found) return;
+    const { project, server } = found;
+    const max = server.maxRestartAttempts;
+    r.startedAt = null;
+    if (r.restartCount >= max) {
+      r.lastError = `${reason}; gave up after ${max} restart${max === 1 ? '' : 's'}`;
+      this.log(r, `\x1b[31m[vigie] ${r.lastError}\x1b[0m\r\n`);
+      this.setState(r, 'failed');
+      return;
+    }
+    r.restartCount++;
+    const delay = Math.min(30000, 1000 * 2 ** (r.restartCount - 1));
+    r.lastError = reason;
+    this.log(r, `\x1b[33m[vigie] ${reason}; restarting in ${delay / 1000}s (attempt ${r.restartCount}/${max})\x1b[0m\r\n`);
+    this.setState(r, 'restarting');
+    r.timers.restart = setTimeout(() => {
+      try {
+        this.spawnServer(project, server, r);
+      } catch (err) {
+        r.lastError = err.message;
+        this.setState(r, 'failed');
+      }
+    }, delay);
+  }
+
+  scheduleHealth(r, gen, delay) {
+    clearTimeout(r.timers.health);
+    r.timers.health = setTimeout(() => this.runHealth(r, gen), delay);
+  }
+
+  async runHealth(r, gen) {
+    if (gen !== r.gen || !r.child) return;
+    const found = this.lookup(r.id);
+    if (!found) return;
+    const { server } = found;
+    const h = server.health;
+    const ok = await checkHealth(server);
+    if (gen !== r.gen || !r.child) return;
+    r.lastHealthAt = new Date().toISOString();
+
+    if (ok === null) {
+      if (r.state !== 'running') this.setState(r, 'running');
+      return;
+    }
+    if (ok) {
+      r.healthFailures = 0;
+      const changed = r.healthy !== true || r.state !== 'running';
+      r.healthy = true;
+      if (changed) this.setState(r, 'running');
+    } else {
+      const age = Date.now() - Date.parse(r.startedAt);
+      const booting = r.state === 'starting' && age < h.startupGraceSeconds * 1000;
+      if (!booting) {
+        r.healthFailures++;
+        r.healthy = false;
+        if (r.healthFailures >= h.failureThreshold) return this.restartUnhealthy(r, `health check failed ${r.healthFailures} times`);
+        if (r.state !== 'unhealthy') this.setState(r, 'unhealthy');
+        else this.emit('server', this.view(r.id));
+      }
+    }
+    this.scheduleHealth(r, gen, r.state === 'starting' ? 1000 : h.intervalSeconds * 1000);
+  }
+
+  async restartUnhealthy(r, reason) {
+    const pid = r.pid;
+    r.gen++; // ignore the exit of the process we are about to kill
+    r.child = null;
+    r.pid = null;
+    clearTimeout(r.timers.health);
+    this.log(r, `\r\n\x1b[33m[vigie] ${reason}\x1b[0m\r\n`);
+    if (pid) await killTree(pid, { force: true, group: !IS_WIN });
+    this.scheduleRestart(r, reason);
+  }
+
+  // ------------------------------------------------------------ persistence
+
+  runningIds() {
+    return [...this.rt.values()].filter((r) => ACTIVE.has(r.state)).map((r) => r.id);
+  }
+
+  schedulePersist() {
+    if (this.shuttingDown) return;
+    clearTimeout(this.persistTimer);
+    this.persistTimer = setTimeout(() => this.persistNow(), 300);
+  }
+
+  persistNow() {
+    clearTimeout(this.persistTimer);
+    try {
+      fs.writeFileSync(STATE_FILE, JSON.stringify({ running: this.runningIds(), savedAt: new Date().toISOString() }, null, 2));
+    } catch {
+      /* best effort */
+    }
+  }
+
+  /** Start autostart servers plus whatever was running when the daemon last stopped. */
+  async boot() {
+    let previous = [];
+    try {
+      previous = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')).running || [];
+    } catch {
+      /* first run */
+    }
+    const ids = new Set(previous);
+    for (const p of this.config.projects) for (const s of p.servers) if (s.autostart) ids.add(s.id);
+    const results = await Promise.allSettled([...ids].filter((id) => this.lookup(id)).map((id) => this.start(id)));
+    return results.filter((x) => x.status === 'rejected').map((x) => x.reason.message);
+  }
+
+  async shutdown() {
+    this.persistNow();
+    this.shuttingDown = true;
+    await this.stopAll();
+    for (const r of this.rt.values()) r.logs.close();
+  }
+
+  // ---------------------------------------------------------------- config
+
+  commit() {
+    this.configText = saveConfig(this.config);
+    this.syncRuntime();
+    this.emit('config');
+  }
+
+  /** Called by the file watcher when config.json was edited by hand. */
+  reconcile(config, text) {
+    this.config = config;
+    this.configText = text;
+    this.syncRuntime();
+    this.emit('config');
+  }
+
+  addProject(input) {
+    const servers = (input.servers || []).map((s) => normalizeServer(s));
+    const project = normalizeProject(
+      { ...input, color: input.color || PROJECT_COLORS[this.config.projects.length % PROJECT_COLORS.length], servers },
+      this.config.projects.length,
+    );
+    if (!fs.existsSync(project.root)) throw new VigieError('ROOT_NOT_FOUND', `Directory not found: ${project.root}`);
+    const dup = this.config.projects.find((p) => p.name.toLowerCase() === project.name.toLowerCase());
+    if (dup) throw new VigieError('DUPLICATE_PROJECT', `A project named "${project.name}" already exists`);
+    this.config.projects.push(project);
+    this.commit();
+    return this.status().projects.find((p) => p.id === project.id);
+  }
+
+  updateProject(ref, patch) {
+    const project = this.project(ref);
+    const next = normalizeProject({ ...project, ...pick(patch, ['name', 'root', 'color']), servers: project.servers });
+    if (!fs.existsSync(next.root)) throw new VigieError('ROOT_NOT_FOUND', `Directory not found: ${next.root}`);
+    Object.assign(project, { name: next.name, root: next.root, color: next.color });
+    this.commit();
+    return this.status().projects.find((p) => p.id === project.id);
+  }
+
+  async removeProject(ref) {
+    const project = this.project(ref);
+    await Promise.allSettled(project.servers.map((s) => this.stop(s.id)));
+    this.config.projects = this.config.projects.filter((p) => p !== project);
+    this.commit();
+    return { removed: project.id };
+  }
+
+  addServer(projectRef, input) {
+    const project = this.project(projectRef);
+    const server = normalizeServer(input);
+    if (project.servers.some((s) => s.name.toLowerCase() === server.name.toLowerCase())) {
+      throw new VigieError('DUPLICATE_SERVER', `Project "${project.name}" already has a server named "${server.name}"`);
+    }
+    project.servers.push(server);
+    this.commit();
+    return this.view(server.id);
+  }
+
+  updateServer(ref, patch) {
+    const { project, server } = this.find(ref);
+    const merged = { ...server, ...pick(patch, ['name', 'command', 'port', 'cwd', 'env', 'autostart', 'maxRestartAttempts']) };
+    if (patch.health) merged.health = { ...server.health, ...patch.health };
+    if ('port' in patch && !patch.health?.type && server.health.type === 'none' && patch.port) merged.health.type = 'tcp';
+    const next = normalizeServer(merged);
+    if (project.servers.some((s) => s !== server && s.name.toLowerCase() === next.name.toLowerCase())) {
+      throw new VigieError('DUPLICATE_SERVER', `Project "${project.name}" already has a server named "${next.name}"`);
+    }
+    Object.assign(server, next, { id: server.id });
+    this.commit();
+    return this.view(server.id);
+  }
+
+  async removeServer(ref) {
+    const { project, server } = this.find(ref);
+    await this.stop(server.id);
+    project.servers = project.servers.filter((s) => s !== server);
+    this.commit();
+    return { removed: server.id };
+  }
+
+  // ----------------------------------------------------------------- ports
+
+  /** Every listener on `port`, classified as managed / external / system. */
+  async portOwners(port) {
+    const listeners = (await listListeners()).filter((l) => l.port === port);
+    if (!listeners.length) return [];
+    return this.classify(listeners, await listProcesses({ fresh: true }));
+  }
+
+  classify(listeners, procs) {
+    const roots = new Map();
+    for (const r of this.rt.values()) if (r.pid) roots.set(r.pid, r.id);
+    const owner = descendantsOf([...roots.keys()], procs);
+    return listeners.map((l) => {
+      const proc = procs.get(l.pid);
+      let serverId = owner.has(l.pid) ? roots.get(owner.get(l.pid)) : null;
+      if (!serverId) {
+        // Fallback when parent ids are unavailable: a running server bound to its own configured port.
+        const byPort = [...this.rt.values()].find((r) => r.pid && this.lookup(r.id)?.server.port === l.port);
+        if (byPort && !procs.size) serverId = byPort.id;
+      }
+      const found = serverId ? this.lookup(serverId) : null;
+      const kind = found ? 'managed' : isProtected(proc, l.pid) ? 'system' : 'external';
+      return {
+        port: l.port,
+        pid: l.pid,
+        addresses: l.addresses,
+        name: proc?.name || l.name || (l.pid === 4 ? 'System' : 'unknown'),
+        command: proc?.command || '',
+        user: proc?.user || l.user || '',
+        kind,
+        serverId: found?.server.id ?? null,
+        serverName: found ? `${found.project.name}/${found.server.name}` : null,
+        projectId: found?.project.id ?? null,
+      };
+    });
+  }
+
+  async portsReport() {
+    const [listeners, procs] = await Promise.all([listListeners(), listProcesses()]);
+    const ports = this.classify(listeners, procs).filter((p) => p.port !== this.apiPort || p.pid !== process.pid);
+    const count = (k) => ports.filter((p) => p.kind === k).length;
+    return {
+      summary: {
+        listening: ports.length,
+        managed: count('managed'),
+        external: count('external'),
+        system: count('system'),
+        registeredProjects: this.config.projects.length,
+      },
+      ports,
+    };
+  }
+
+  async killProcess(pid) {
+    pid = Number(pid);
+    const procs = await listProcesses({ fresh: true });
+    const proc = procs.get(pid);
+    if (!proc) throw new VigieError('NOT_FOUND', `No process with pid ${pid}`, undefined, 404);
+    if (isProtected(proc, pid)) throw new VigieError('PROTECTED', `${proc.name} (pid ${pid}) is a protected system process`, undefined, 403);
+    const owner = descendantsOf(this.managedPids(), procs);
+    if (owner.has(pid)) throw new VigieError('MANAGED', `pid ${pid} belongs to a Vigie server; stop the server instead`);
+    await killTree(pid);
+    return { killed: pid, name: proc.name };
+  }
+}
+
+function pick(obj, keys) {
+  const out = {};
+  for (const k of keys) if (obj && k in obj) out[k] = obj[k];
+  return out;
+}

@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ tokens
+   tweakcn "Modern Minimal" (light + dark) as the base, Vigie's harbor roles on top.
+   See DESIGN.md. Status colors only ever describe server state. */
+:root {
+  --deck: oklch(0.985 0.002 250);
+  --card: oklch(1 0 0);
+  --ink: oklch(0.21 0.02 262);
+  --ink-soft: oklch(0.45 0.02 262);
+  --ink-faint: oklch(0.52 0.015 262);
+  --hairline: oklch(0.9276 0.0058 264.5313);
+  --hairline-strong: oklch(0.87 0.009 258);
+  --wash: oklch(0.967 0.0029 264.5419);
+  --signal: oklch(0.6231 0.188 259.8145);
+  --signal-deep: oklch(0.52 0.2 262);
+  --signal-wash: oklch(0.9514 0.025 236.8242);
+  --band: oklch(0.165 0.012 262);
+  --band-raised: oklch(0.215 0.015 262);
+  --band-text: oklch(0.93 0.01 250);
+  --band-muted: oklch(0.7 0.015 255);
+  --ok: oklch(0.64 0.17 150);
+  --warn: oklch(0.7 0.15 70);
+  --bad: oklch(0.6368 0.2078 25.3313);
+  --button: var(--ink);
+  --button-text: oklch(1 0 0);
+  --shadow-card: 0 1px 2px oklch(0.2 0.02 262 / 0.05), 0 14px 36px -18px oklch(0.2 0.02 262 / 0.22);
+  --shadow-button: inset 0 1px 0 oklch(1 0 0 / 0.14), 0 12px 26px -12px oklch(0.21 0.02 262 / 0.7);
+  --dots: oklch(0.21 0.02 262 / 0.09);
+  /* Syntax colors for terminals: blues and lilacs, never the status hues. */
+  --syn-key: oklch(0.78 0.11 250);
+  --syn-str: oklch(0.88 0.05 225);
+  --syn-num: oklch(0.82 0.1 300);
+}
+
+.dark {
+  --deck: oklch(0.2046 0 0);
+  --card: oklch(0.2686 0 0);
+  --ink: oklch(0.96 0.003 250);
+  --ink-soft: oklch(0.78 0.006 250);
+  --ink-faint: oklch(0.62 0.006 250);
+  --hairline: oklch(0.3715 0 0 / 0.75);
+  --hairline-strong: oklch(0.44 0 0);
+  --wash: oklch(0.2393 0 0);
+  --signal-wash: oklch(0.3791 0.1378 265.5222 / 0.45);
+  --signal-deep: oklch(0.74 0.14 255);
+  /* Deeper than the dark ground so bands still read as a darker material. */
+  --band: oklch(0.135 0.01 262);
+  --band-raised: oklch(0.185 0.012 262);
+  --ok: oklch(0.76 0.17 150);
+  --warn: oklch(0.8 0.15 80);
+  --bad: oklch(0.7 0.19 25);
+  --button: oklch(0.98 0 0);
+  --button-text: oklch(0.2 0.02 262);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 18px 40px -20px oklch(0 0 0 / 0.7);
+  --shadow-button: inset 0 -1px 0 oklch(0 0 0 / 0.12), 0 12px 26px -12px oklch(0 0 0 / 0.8);
+  --dots: oklch(1 0 0 / 0.07);
+}
+
+@theme inline {
+  --color-deck: var(--deck);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-wash: var(--wash);
+  --color-signal: var(--signal);
+  --color-signal-deep: var(--signal-deep);
+  --color-signal-wash: var(--signal-wash);
+  --color-band: var(--band);
+  --color-band-raised: var(--band-raised);
+  --color-band-text: var(--band-text);
+  --color-band-muted: var(--band-muted);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-button: var(--button);
+  --color-button-text: var(--button-text);
+  --color-syn-key: var(--syn-key);
+  --color-syn-str: var(--syn-str);
+  --color-syn-num: var(--syn-num);
+
+  /* Type ramp (DESIGN.md › Typography). Display and headline sizes are fluid clamps set where used. */
+  --text-caption: 0.8125rem;
+  --text-code: 0.875rem;
+  --text-small: 0.9375rem;
+  --text-ui: 1.0625rem;
+  --text-title: 1.25rem;
+  --text-brand: 1.375rem;
+
+  --font-display: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-button: var(--shadow-button);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ------------------------------------------------------------------- base */
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 6.5rem;
+  background: var(--deck);
+}
+
+body {
+  background: var(--deck);
+  color: var(--ink);
+  font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: oklch(0.6231 0.188 259.8145 / 0.22);
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ---------------------------------------------------------------- surfaces */
+
+/* Dotted plotting-sheet ground for illustration panels. */
+.dot-field {
+  background-image: radial-gradient(var(--dots) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+}
+
+/* Hide scrollbars on horizontal rails while keeping them scrollable. */
+.rail {
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ motion */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(6px);
+  }
+}
+
+.rise {
+  animation: rise 0.9s var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+
+/* The product frame starts tipped back like a screen on a desk and settles flat as it scrolls in. */
+@supports (animation-timeline: view()) {
+  @keyframes settle {
+    from {
+      transform: perspective(1800px) rotateX(14deg) scale(0.94);
+    }
+    to {
+      transform: perspective(1800px) rotateX(0deg) scale(1);
+    }
+  }
+  .settle {
+    transform-origin: 50% 0%;
+    animation: settle linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 40%;
+  }
+}
+
+@keyframes progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rise,
+  .settle {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
