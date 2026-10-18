@@ -4,8 +4,10 @@ import http from 'node:http';
 import path from 'node:path';
 import { VigieError } from './errors.js';
 import { inspectDirectory } from './inspect.js';
+import { LOGO_TYPES } from './logo.js';
 import { lastLines } from './logs.js';
 import { UI_DIR, VERSION } from './paths.js';
+import { openTerminal } from './terminal.js';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -15,6 +17,7 @@ const MIME = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
   '.json': 'application/json',
+  '.woff2': 'font/woff2',
 };
 
 /** @param {import('./supervisor.js').Supervisor} sup */
@@ -56,6 +59,8 @@ export function createApi(sup, { port, onShutdown }) {
     ['POST', '/api/servers/:ref/clear-logs', (p) => (sup.clearLogs(p.ref), { cleared: true })],
     ['POST', '/api/stop-all', () => sup.stopAll()],
     ['POST', '/api/processes/:pid/kill', (p) => sup.killProcess(p.pid)],
+    ['POST', '/api/projects/:ref/terminal', (p, _, b) => openTerminal(sup.terminalDir(p.ref, b.server))],
+    ['PATCH', '/api/settings', (_, __, b) => sup.updateSettings(b)],
     ['POST', '/api/shutdown', () => (setTimeout(onShutdown, 50), { stopping: true })],
   ].map(([method, pattern, handler]) => {
     const keys = [];
@@ -74,6 +79,8 @@ export function createApi(sup, { port, onShutdown }) {
 
       if (url.pathname === '/api/events') return openStream(req, res);
       if (!url.pathname.startsWith('/api/')) return serveStatic(url.pathname, res);
+      const logo = req.method === 'GET' && url.pathname.match(/^\/api\/projects\/([^/]+)\/logo$/);
+      if (logo) return serveLogo(sup.logoFile(decodeURIComponent(logo[1])), res);
 
       const route = routes.find((r) => r.method === req.method && r.re.test(url.pathname));
       if (!route) throw new VigieError('NOT_FOUND', `No route ${req.method} ${url.pathname}`, undefined, 404);
@@ -135,6 +142,20 @@ function readBody(req) {
     });
     req.on('error', reject);
   });
+}
+
+/**
+ * A project's logo comes from a folder Vigie does not control. An SVG can carry script, so the
+ * response is sandboxed: opened directly, it cannot run code against this API's origin.
+ */
+function serveLogo(file, res) {
+  res.writeHead(200, {
+    'content-type': LOGO_TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream',
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
+    'x-content-type-options': 'nosniff',
+    'cache-control': 'no-cache',
+  });
+  fs.createReadStream(file).pipe(res);
 }
 
 function serveStatic(pathname, res) {

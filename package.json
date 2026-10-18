@@ -27,8 +27,8 @@
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux",
     "check": "node scripts/check-syntax.js",
-    "test": "node --test test/core.test.js test/cli-tool.test.js test/smoke.test.js",
-    "test:unit": "node --test test/core.test.js test/cli-tool.test.js"
+    "test": "node --test test/core.test.js test/cli-tool.test.js test/features.test.js test/smoke.test.js",
+    "test:unit": "node --test test/core.test.js test/cli-tool.test.js test/features.test.js"
   },
   "build": {
     "appId": "dev.vigie.app",

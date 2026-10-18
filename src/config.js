@@ -4,7 +4,8 @@ import path from 'node:path';
 import { CONFIG_FILE, DEFAULT_API_PORT, HOME } from './paths.js';
 import { VigieError } from './errors.js';
 
-export const PROJECT_COLORS = ['#0A84FF', '#30D158', '#FF9F0A', '#BF5AF2', '#FF375F', '#64D2FF', '#FFD60A', '#AC8E68'];
+// Kept clear of green, amber and red: in the app those colors only ever mean server state.
+export const PROJECT_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#6366F1', '#0EA5E9', '#B45309', '#64748B'];
 
 export function newId(prefix) {
   return `${prefix}_${crypto.randomBytes(4).toString('hex')}`;
@@ -81,14 +82,21 @@ export function normalizeProject(raw, index = 0) {
     name,
     root: path.resolve(String(raw.root)),
     color: /^#[0-9a-f]{6}$/i.test(raw.color || '') ? raw.color : PROJECT_COLORS[index % PROJECT_COLORS.length],
+    // 'auto' shows the project's own logo when one is found, 'letter' always shows the colored initial.
+    icon: ICON_MODES.includes(raw.icon) ? raw.icon : 'auto',
     servers,
   };
 }
+
+export const ICON_MODES = ['auto', 'letter'];
+export const LANGUAGES = ['auto', 'en', 'fr'];
 
 export function normalizeConfig(raw) {
   const projects = (raw.projects || []).map((p, i) => normalizeProject(p, i));
   return {
     apiPort: toPort(raw.apiPort) || DEFAULT_API_PORT,
+    // Language of the app window and tray menu; 'auto' follows the system.
+    language: LANGUAGES.includes(raw.language) ? raw.language : 'auto',
     projects,
   };
 }

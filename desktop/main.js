@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installSkill } from '../src/skill.js';
 import { installCli, isCliInstalled, refreshCli, uninstallCli } from './cli-tool.js';
+import { trayText } from './tray-strings.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ICONS = path.join(HERE, 'icons');
@@ -61,8 +62,12 @@ function ensureSupervisor() {
   return takingOver;
 }
 
-async function api(method, route) {
-  const res = await fetch(`${apiBase}/api${route}`, { method });
+async function api(method, route, body) {
+  const res = await fetch(`${apiBase}/api${route}`, {
+    method,
+    headers: body ? { 'content-type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
   const payload = await res.json();
   if (!payload.ok) throw new Error(payload.error.message);
   return payload.data;
@@ -125,7 +130,7 @@ function trayIcon() {
   return image.resize({ width: IS_MAC ? 18 : 16, height: IS_MAC ? 18 : 16 });
 }
 
-function serverItems(project) {
+function serverItems(project, t) {
   return project.servers.map((s) => {
     const active = ACTIVE.has(s.state);
     const run = (action) => () => api('POST', `/servers/${encodeURIComponent(s.id)}/${action}`).catch(notifyError).finally(refreshTray);
@@ -134,10 +139,11 @@ function serverItems(project) {
       submenu: [
         { label: `${project.name}/${s.name} · ${s.state}`, enabled: false },
         { type: 'separator' },
-        active ? { label: 'Stop', click: run('stop') } : { label: 'Start', click: run('start') },
-        { label: 'Restart', enabled: active, click: run('restart') },
-        { label: 'Open in browser', enabled: Boolean(s.url && s.state === 'running'), click: () => shell.openExternal(s.url) },
-        { label: 'Show logs', click: () => showWindow(`#/s/${encodeURIComponent(s.id)}`) },
+        active ? { label: t('stop'), click: run('stop') } : { label: t('start'), click: run('start') },
+        { label: t('restart'), enabled: active, click: run('restart') },
+        { label: t('openBrowser'), enabled: Boolean(s.url && s.state === 'running'), click: () => shell.openExternal(s.url) },
+        { label: t('openTerminal'), click: () => api('POST', `/projects/${encodeURIComponent(project.id)}/terminal`, { server: s.id }).catch(notifyError) },
+        { label: t('showLogs'), click: () => showWindow(`#/s/${encodeURIComponent(s.id)}`) },
       ],
     };
   });
@@ -158,23 +164,26 @@ async function refreshTray() {
   const servers = status ? status.projects.flatMap((p) => p.servers) : [];
   const running = servers.filter((s) => s.state === 'running').length;
   const cliInstalled = isCliInstalled();
-  const key = JSON.stringify([status && status.projects.map((p) => [p.name, p.servers.map((s) => [s.id, s.name, s.state, s.port])]), app.getLoginItemSettings().openAtLogin, cliInstalled]);
+  const t = trayText(status?.language, app.getLocale());
+  const key = JSON.stringify([status && status.projects.map((p) => [p.name, p.servers.map((s) => [s.id, s.name, s.state, s.port])]), status?.language, app.getLoginItemSettings().openAtLogin, cliInstalled]);
   if (key === lastMenuKey) return;
   lastMenuKey = key;
 
-  tray.setToolTip(status ? `Vigie · ${running}/${servers.length} running` : 'Vigie · daemon unreachable');
-  const items = [{ label: status ? `Vigie · ${running}/${servers.length} running` : 'Vigie · daemon unreachable', enabled: false }];
+  const title = status ? t('running', { running, total: servers.length }) : t('unreachable');
+  tray.setToolTip(title);
+  const items = [{ label: title, enabled: false }];
   for (const p of status?.projects || []) {
-    items.push({ type: 'separator' }, { label: p.name, enabled: false }, ...serverItems(p));
+    items.push({ type: 'separator' }, { label: p.name, enabled: false }, ...serverItems(p, t));
   }
   items.push(
     { type: 'separator' },
-    { label: 'Open Vigie', click: () => showWindow() },
-    { label: 'Ports', click: () => showWindow('#/ports') },
-    { label: 'Stop all', enabled: servers.some((s) => ACTIVE.has(s.state)), click: () => api('POST', '/stop-all').catch(notifyError).finally(refreshTray) },
+    { label: t('openVigie'), click: () => showWindow() },
+    { label: t('ports'), click: () => showWindow('#/ports') },
+    { label: t('manual'), click: () => showWindow('#/manual') },
+    { label: t('stopAll'), enabled: servers.some((s) => ACTIVE.has(s.state)), click: () => api('POST', '/stop-all').catch(notifyError).finally(refreshTray) },
     { type: 'separator' },
     {
-      label: 'Launch at login',
+      label: t('launchAtLogin'),
       type: 'checkbox',
       checked: app.getLoginItemSettings().openAtLogin,
       click: (item) => {
@@ -182,10 +191,10 @@ async function refreshTray() {
         refreshTray();
       },
     },
-    cliInstalled ? { label: 'Uninstall command-line tool', click: () => removeCliTool() } : { label: 'Install command-line tool', click: () => addCliTool() },
-    { label: 'Install agent skill', click: () => addSkill() },
+    cliInstalled ? { label: t('uninstallCli'), click: () => removeCliTool() } : { label: t('installCli'), click: () => addCliTool() },
+    { label: t('installSkill'), click: () => addSkill() },
     { type: 'separator' },
-    { label: daemon ? 'Quit Vigie (stops all servers)' : 'Quit Vigie', click: () => quit() },
+    { label: daemon ? t('quitAll') : t('quit'), click: () => quit() },
   );
   tray.setContextMenu(Menu.buildFromTemplate(items));
 }
