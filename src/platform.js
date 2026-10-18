@@ -1,5 +1,6 @@
 // OS-specific process and port inspection. Everything here is read-only except killTree.
 import { execFile } from 'node:child_process';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { IS_WIN } from './paths.js';
@@ -89,7 +90,7 @@ export async function listListeners() {
 
 let procCache = { at: 0, promise: null };
 
-/** Map<pid, { pid, ppid, name, user, session, command }>, cached for 2 seconds. */
+/** Map<pid, { pid, ppid, name, user, session, started, command }>, cached for 2 seconds. `started` is epoch ms, Windows only. */
 export function listProcesses({ fresh = false } = {}) {
   if (!fresh && procCache.promise && Date.now() - procCache.at < 2000) return procCache.promise;
   procCache = { at: Date.now(), promise: readProcesses() };
@@ -99,12 +100,13 @@ export function listProcesses({ fresh = false } = {}) {
 async function readProcesses() {
   const map = new Map();
   if (IS_WIN) {
+    // A parent id outlives its process and Windows reuses pids: the creation time tells a real parent from a newer process.
     const script =
-      "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-CimInstance Win32_Process | ForEach-Object { '{0}|{1}|{2}|{3}|{4}' -f $_.ProcessId,$_.ParentProcessId,$_.SessionId,$_.Name,($_.CommandLine -replace '[\\r\\n]',' ') }";
+      "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $e=[datetime]'1970-01-01'; Get-CimInstance Win32_Process | ForEach-Object { $t = if ($_.CreationDate) { [long](($_.CreationDate.ToUniversalTime() - $e).TotalMilliseconds) } else { '' }; '{0}|{1}|{2}|{3}|{4}|{5}' -f $_.ProcessId,$_.ParentProcessId,$_.SessionId,$_.Name,$t,($_.CommandLine -replace '[\\r\\n]',' ') }";
     const text = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { timeout: 15000 });
     for (const line of text.split(/\r?\n/)) {
       const parts = line.split('|');
-      if (parts.length < 4) continue;
+      if (parts.length < 5) continue;
       const pid = Number(parts[0]);
       map.set(pid, {
         pid,
@@ -112,7 +114,8 @@ async function readProcesses() {
         session: Number(parts[2]),
         name: parts[3],
         user: '',
-        command: parts.slice(4).join('|').trim(),
+        started: parts[4] ? Number(parts[4]) : null,
+        command: parts.slice(5).join('|').trim(),
       });
     }
     if (map.size) return map;
@@ -122,7 +125,7 @@ async function readProcesses() {
       const cols = [...line.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
       if (cols.length < 4) continue;
       const pid = Number(cols[1]);
-      map.set(pid, { pid, ppid: 0, session: Number(cols[3]), name: cols[0], user: '', command: '' });
+      map.set(pid, { pid, ppid: 0, session: Number(cols[3]), name: cols[0], user: '', started: null, command: '' });
     }
     return map;
   }
@@ -137,11 +140,28 @@ async function readProcesses() {
       ppid: Number(m[2]),
       user: m[3],
       session: null,
+      started: null,
       name: path.basename(exe.split(' ')[0]) || exe,
       command,
     });
   }
   return map;
+}
+
+/** A process's working directory, or null when the OS does not tell (always on Windows). */
+export async function processCwd(pid) {
+  if (process.platform === 'linux') {
+    try {
+      return fs.readlinkSync(`/proc/${pid}/cwd`);
+    } catch {
+      return null;
+    }
+  }
+  if (process.platform === 'darwin') {
+    const line = (await run('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'])).split('\n').find((l) => l.startsWith('n'));
+    return line ? line.slice(1) : null;
+  }
+  return null;
 }
 
 /** All descendants of the given root pids, including the roots. Returns Map<pid, rootPid>. */

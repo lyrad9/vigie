@@ -61,7 +61,7 @@ export function createApi(sup, { port, onShutdown }) {
     ['POST', '/api/processes/:pid/kill', (p) => sup.killProcess(p.pid)],
     ['POST', '/api/projects/:ref/terminal', (p, _, b) => openTerminal(sup.terminalDir(p.ref, b.server))],
     ['PATCH', '/api/settings', (_, __, b) => sup.updateSettings(b)],
-    ['POST', '/api/shutdown', () => (setTimeout(onShutdown, 50), { stopping: true })],
+    ['POST', '/api/shutdown', (_, __, b) => (setTimeout(() => onShutdown(b), 50), { stopping: true })],
   ].map(([method, pattern, handler]) => {
     const keys = [];
     const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)')) + '$');

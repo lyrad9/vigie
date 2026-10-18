@@ -34,7 +34,9 @@ export async function runDaemon({ onExit = () => process.exit(0), handleSignals 
     return stopping;
   };
 
-  const server = createApi(sup, { port, onShutdown: () => shutdown('api').then(onExit) });
+  sup.on('notice', log);
+  // The Windows installer asks for a shutdown before replacing the app: the app then quits without installing a pending update.
+  const server = createApi(sup, { port, onShutdown: (body) => shutdown(body?.reason === 'installer' ? 'installer' : 'api').then(() => onExit({ reason: body?.reason })) });
   await new Promise((resolve, reject) => {
     server.once('error', reject);
     // Loopback only: the API can spawn processes, so it never binds to the network.

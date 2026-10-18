@@ -72,7 +72,7 @@ function ensureSupervisor() {
   takingOver ??= (async () => {
     if (daemon || (await ping())) return false;
     const { runDaemon } = await import('../src/daemon.js');
-    daemon = await runDaemon({ handleSignals: false, onExit: () => quit() });
+    daemon = await runDaemon({ handleSignals: false, onExit: ({ reason } = {}) => quit({ update: reason === 'installer' ? 'skip' : undefined }) });
     return true;
   })().finally(() => (takingOver = null));
   return takingOver;
@@ -272,7 +272,10 @@ async function checkForUpdates() {
 
 // --------------------------------------------------------------- lifecycle
 
-/** Stop the servers, then quit, installing a downloaded update on the way out. */
+/**
+ * Stop the servers, then quit, installing a downloaded update on the way out.
+ * update: 'restart' reopens Vigie after installing; 'skip' quits without installing (an installer is already running).
+ */
 async function quit({ update } = {}) {
   if (quitting) return;
   quitting = true;
@@ -281,7 +284,7 @@ async function quit({ update } = {}) {
   // Only stop servers if this app owns the supervisor; a CLI daemon keeps running.
   if (daemon) await daemon.shutdown().catch(() => {});
   // The installer restarts Vigie when asked to; the servers that were running come back with it.
-  if (updates.install({ restart: update === 'restart' })) {
+  if (update !== 'skip' && updates.install({ restart: update === 'restart' })) {
     setTimeout(() => app.exit(0), 15000).unref?.();
     return;
   }
