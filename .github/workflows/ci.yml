@@ -60,7 +60,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: website/package-lock.json
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: website/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('website/package-lock.json') }}-${{ hashFiles('website/src/**') }}
