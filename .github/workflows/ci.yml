@@ -1,0 +1,117 @@
+name: CI
+
+# Runs on every push (so pull requests opened by the automation already carry checks on their
+# head commit) and on pull requests coming from forks. The final "CI" job is the single
+# required status check for main and dev.
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["**"]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The Electron binary is only needed to run the app, never to test or package it.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+  FORCE_COLOR: "1"
+
+jobs:
+  core:
+    name: Core · ${{ matrix.os }} · Node ${{ matrix.node }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: 20 }
+          - { os: ubuntu-latest, node: 22 }
+          - { os: ubuntu-latest, node: 24 }
+          - { os: windows-latest, node: 24 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Syntax
+        run: npm run check
+      - name: Unit and end-to-end tests
+        run: npm test
+
+  website:
+    name: Website · lint, types, build
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: website/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('website/package-lock.json') }}-${{ hashFiles('website/src/**') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('website/package-lock.json') }}-
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  installer:
+    name: Windows installer
+    # Packaging is slow: build it where it matters (dev, main, and pull requests into main).
+    if: >-
+      (github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'))
+      || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.head.repo.full_name != github.repository)
+      || github.event_name == 'workflow_dispatch'
+    needs: core
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Package (unsigned)
+        run: npx electron-builder --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vigie-windows-installer
+          path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  ci:
+    name: CI
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+    needs: [core, website, installer]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required jobs passed
+        run: |
+          echo "core: ${{ needs.core.result }} · website: ${{ needs.website.result }} · installer: ${{ needs.installer.result }}"
+          for result in "${{ needs.core.result }}" "${{ needs.website.result }}" "${{ needs.installer.result }}"; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then exit 1; fi
+          done
+          if [ "${{ needs.core.result }}" != "success" ] || [ "${{ needs.website.result }}" != "success" ]; then exit 1; fi

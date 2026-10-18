@@ -1,0 +1,76 @@
+name: Pull requests
+
+# The branch flow:   feature branch ──PR──▶ dev ──PR──▶ main
+# 1. Pushing any branch other than dev/main opens a pull request into dev (once).
+# 2. When CI passes on dev (after a merge), a pull request dev → main is opened, or its
+#    description is refreshed with the commits waiting to ship.
+# Note: workflow_run only fires for this file as it exists on the default branch (main).
+on:
+  push:
+    branches-ignore: [main, dev, "dependabot/**"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [dev]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  into-dev:
+    name: Open a pull request into dev
+    if: github.event_name == 'push' && !github.event.deleted
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      BRANCH: ${{ github.ref_name }}
+    steps:
+      - name: Create the pull request if none is open
+        run: |
+          open=$(gh pr list --repo "$REPO" --head "$BRANCH" --base dev --state open --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            echo "Pull request #$open is already open for $BRANCH."
+            exit 0
+          fi
+          ahead=$(gh api "repos/$REPO/compare/dev...$BRANCH" --jq '.ahead_by')
+          if [ "$ahead" = "0" ]; then
+            echo "$BRANCH has nothing that dev does not already have."
+            exit 0
+          fi
+          title=$(gh api "repos/$REPO/commits/$GITHUB_SHA" --jq '.commit.message | split("\n")[0]')
+          commits=$(gh api "repos/$REPO/compare/dev...$BRANCH" --jq '.commits[] | "- " + (.commit.message | split("\n")[0]) + " (" + .sha[0:7] + ")"')
+          body=$(printf '%s\n\n%s\n\n%s' "Ouverte automatiquement après le push de \`$BRANCH\`." "### Commits" "$commits")
+          gh pr create --repo "$REPO" --base dev --head "$BRANCH" --title "$title" --body "$body"
+
+  dev-to-main:
+    name: Open or refresh the release pull request (dev → main)
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Create or update the pull request
+        run: |
+          ahead=$(gh api "repos/$REPO/compare/main...dev" --jq '.ahead_by')
+          if [ "$ahead" = "0" ]; then
+            echo "dev has nothing new for main."
+            exit 0
+          fi
+          commits=$(gh api "repos/$REPO/compare/main...dev" --jq '.commits[] | "- " + (.commit.message | split("\n")[0]) + " (" + .sha[0:7] + ")"')
+          body=$(printf '%s\n\n%s\n\n%s\n\n%s' \
+            "Validé sur \`dev\` : la CI est verte sur ${{ github.event.workflow_run.head_sha }}." \
+            "### À livrer ($ahead commit(s))" "$commits" \
+            "Merger cette PR met le site à jour sur vigie.lyrad.dev. Pour publier l'app : créez un tag \`vX.Y.Z\` sur main.")
+          open=$(gh pr list --repo "$REPO" --head dev --base main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh pr edit "$open" --repo "$REPO" --body "$body"
+            echo "Refreshed pull request #$open."
+          else
+            gh pr create --repo "$REPO" --base main --head dev --title "Release : dev → main" --body "$body"
+          fi
