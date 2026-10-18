@@ -1,6 +1,7 @@
 // Guess a sensible server definition from a project directory.
 import fs from 'node:fs';
 import path from 'node:path';
+import { findProjectLogo } from './logo.js';
 
 const FRAMEWORKS = [
   // [dependency, label, default port, flags that pin the port so the server never falls back silently]
@@ -48,8 +49,10 @@ export function inspectDirectory(root) {
   } catch {
     /* missing */
   }
-  const result = { root: abs, exists: Boolean(stat?.isDirectory()), name: path.basename(abs), scripts: {}, suggestion: null };
+  const result = { root: abs, exists: Boolean(stat?.isDirectory()), name: path.basename(abs), scripts: {}, suggestion: null, logo: null };
   if (!result.exists) return result;
+  const logo = findProjectLogo(abs);
+  if (logo) result.logo = path.relative(abs, logo).replace(/\\/g, '/');
 
   const pkg = readJson(path.join(abs, 'package.json'));
   if (pkg) {

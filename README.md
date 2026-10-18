@@ -8,8 +8,8 @@ dans des onglets. Vigie lance chaque serveur **une seule fois**. Ensuite, chaque
 ou onglet lit le même état en direct : ce qui tourne, sur quel port, sous quel PID, et si le
 serveur répond vraiment.
 
-Inspiré de [Portly](https://portly.melvynx.dev/) (macOS, Swift). Vigie est en Node.js, sans
-aucune dépendance au runtime, et tourne sous **Windows, macOS et Linux**.
+Vigie est écrit en Node.js, sans aucune dépendance au runtime, et tourne sous **Windows, macOS
+et Linux**.
 
 ## Ce que ça fait
 
@@ -23,6 +23,10 @@ aucune dépendance au runtime, et tourne sous **Windows, macOS et Linux**.
 | **Une config éditable à la main** | `~/.config/vigie/config.json`, surveillé : modifie-le, Vigie recharge. |
 | **Reprise au redémarrage** | Les serveurs qui tournaient quand Vigie s'est arrêté repartent au lancement suivant. |
 | **API loopback** | `127.0.0.1:7744` uniquement, réponses `{ ok, data, error }`. Protégée contre le DNS rebinding et les requêtes cross-origin. |
+| **Manuel intégré** | Un manuel d'utilisation complet dans l'app (bouton **Manuel**), en français et en anglais. |
+| **Terminal en un clic** | Le bouton **Terminal** ouvre Windows Terminal ou PowerShell (Terminal sur macOS, l'émulateur par défaut sous Linux) dans le dossier du serveur. |
+| **Logo des projets** | Vigie détecte le logo du projet (`app/icon.png`, `public/favicon.svg`, `public/logo.png`…) et l'affiche à la place de l'initiale. |
+| **Français et anglais** | L'app et le menu de l'icône suivent la langue du système, ou celle choisie en bas de la barre latérale. |
 
 ## Démarrer
 
