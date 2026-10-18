@@ -13,10 +13,12 @@ import { HOME } from '../src/paths.js';
 const IS_WIN = process.platform === 'win32';
 export const CLI_DIR = IS_WIN ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Vigie', 'bin') : path.join(HOME, 'bin');
 const LINK = path.join(os.homedir(), '.local', 'bin', 'vigie');
+// The shim the boot refresh reads its target from (on Windows the sh one is a copy for Git Bash).
+const MAIN_SHIM = path.join(CLI_DIR, IS_WIN ? 'vigie.cmd' : 'vigie');
 const NOTICE = 'Vigie command-line tool: runs the CLI bundled in the desktop app. Written by Vigie (tray menu); do not edit.';
 
 /** Shim files to write, as { file: content }. `script` is the bundled bin/vigie.js (inside app.asar when packaged). */
-function shims(script, exe = process.execPath) {
+export function shims(script, exe = process.execPath) {
   const sq = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
   const fwd = (p) => p.replace(/\\/g, '/');
   // POSIX sh shim: macOS/Linux, and Git Bash on Windows (it does not run .cmd files without the extension).
@@ -65,9 +67,83 @@ function writeShims(script) {
   }
 }
 
-/** Keep an installed shim pointing at this copy of the app (after an update or a move). Never installs one. */
-export function refreshCli(script) {
-  if (isCliInstalled()) writeShims(script);
+/** The binary a shim written by shims() runs, or null when the content is not one of ours. */
+export function shimTarget(content) {
+  const cmd = /^if not exist "(.+)" goto missing\r?$/m.exec(content);
+  if (cmd) return cmd[1].replace(/%%/g, '%');
+  const sh = /^\[ -e '((?:[^']|'\\'')*)' \]/m.exec(content);
+  return sh ? sh[1].replace(/'\\''/g, "'") : null;
+}
+
+/**
+ * Whether this copy of the app is an installed one. Dev runs (`npm run app`), unpacked builds and copies in a
+ * temp folder come and go: a shim pointed at one breaks as soon as it is deleted.
+ *   Windows: the NSIS install folder, wherever the user put it, holds "Uninstall Vigie.exe" next to the binary.
+ *   macOS: the bundle sits in /Applications or ~/Applications (not a mounted dmg, not App Translocation).
+ *   Linux: an AppImage. Its binary runs from a mount that changes on every launch, so the AppImage file is what counts.
+ */
+export function isInstalledCopy({
+  isPackaged,
+  exe = process.execPath,
+  platform = process.platform,
+  appImage = process.env.APPIMAGE,
+  home = os.homedir(),
+  tmpDir = realPath(os.tmpdir()),
+  exists = fs.existsSync,
+}) {
+  if (!isPackaged) return false;
+  const p = platform === 'win32' ? path.win32 : path.posix;
+  const location = platform === 'linux' ? appImage : exe;
+  if (!location || isInside(p, tmpDir, location)) return false;
+  if (platform === 'win32') return exists(p.join(p.dirname(exe), 'Uninstall Vigie.exe'));
+  if (platform === 'darwin') return ['/Applications', p.join(home, 'Applications')].some((dir) => isInside(p, dir, exe));
+  return platform === 'linux';
+}
+
+/**
+ * Whether the boot refresh may rewrite the installed shim, which runs `target` (null when unreadable), so that it
+ * runs `exe` instead. Only an installed copy may, and only to keep its own shim current (after an update) or to take
+ * over a shim whose binary is gone (the app was moved or reinstalled elsewhere). A shim that works is never repointed
+ * at another copy: "Install command-line tool" in the tray does that on purpose.
+ */
+export function shouldRefreshShim({ installed, exe, target, targetExists, platform = process.platform }) {
+  if (!installed || !target) return false;
+  return !targetExists || samePath(target, exe, platform);
+}
+
+/** At boot: keep an installed shim current when shouldRefreshShim() allows it. Never installs one. */
+export function refreshCli(script, { isPackaged }) {
+  if (!isCliInstalled()) return false;
+  let target = null;
+  try {
+    target = shimTarget(fs.readFileSync(MAIN_SHIM, 'utf8'));
+  } catch {
+    /* unreadable: leave it alone */
+  }
+  const exe = process.execPath;
+  const installed = isInstalledCopy({ isPackaged, exe: realPath(exe) });
+  const refresh = shouldRefreshShim({ installed, exe, target, targetExists: Boolean(target) && fs.existsSync(target) });
+  if (refresh) writeShims(script);
+  return refresh;
+}
+
+function isInside(p, dir, file) {
+  const rel = p.relative(dir, file);
+  return rel !== '' && rel.split(p.sep)[0] !== '..' && !p.isAbsolute(rel);
+}
+
+function samePath(a, b, platform) {
+  if (platform !== 'win32') return path.posix.resolve(a) === path.posix.resolve(b);
+  return path.win32.resolve(a).toLowerCase() === path.win32.resolve(b).toLowerCase();
+}
+
+/** The long, symlink-free form of a path: os.tmpdir() can be an 8.3 short name on Windows (C:\Users\NGAKOD~1\...). */
+function realPath(p) {
+  try {
+    return fs.realpathSync.native(p);
+  } catch {
+    return p;
+  }
 }
 
 /** Install the shim and put it on the PATH. Returns { dir, onPath } where onPath says whether new terminals will find it. */
