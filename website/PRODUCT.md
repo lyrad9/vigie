@@ -32,8 +32,8 @@ Built for the agent era rather than for process management in general: a JSON CL
 - Health checks: TCP on the port or HTTP path with an expected status; unhealthy servers restart with backoff up to `maxRestartAttempts` (default 5), then park as `failed`.
 - Refuses to start on an occupied port (`PORT_IN_USE`) and names the owner; `--takeover` only on explicit request. System processes are read-only.
 - Restores servers that were running when Vigie stopped; optional launch at login.
-- Windows installer (`Vigie Setup 0.1.1.exe`, unsigned: SmartScreen warns on first run). macOS and Linux builds from source.
-- Open source, MIT license. Repository: https://github.com/lyrad9/vigie. Version 0.1.1.
+- Windows installer (`Vigie-Setup-0.1.2.exe`, unsigned: SmartScreen warns on first run). macOS and Linux builds from source.
+- Open source, MIT license. Repository: https://github.com/lyrad9/vigie. Version 0.1.2.
 - Not a real PTY: some tools drop colors outside a TTY; interactive prompts are not supported.
 
 ## Brand Commitments
