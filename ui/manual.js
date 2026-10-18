@@ -141,6 +141,9 @@ const en = [
   <li><strong>Move to Vigie</strong>: stops it and starts your server under Vigie in one go.</li>
 </ul>
 <p>From the command line, the same takeover is <code>vigie start &lt;server&gt; --takeover</code>.</p>
+<h3>One port per server</h3>
+<p>A server that is starting, or that Vigie is restarting after failed health checks, keeps its port even though nothing answers on it yet. The Ports screen lists it as <em>not listening yet</em>, and Vigie refuses to start another server on that port.</p>
+<p>When you add a server, or change its port, to a port another server already has in its settings, Vigie names that server and offers the next free port. Choose <strong>Share the port anyway</strong> only for servers that never run at the same time, such as two copies of one project. From the command line: <code>vigie register --port &lt;n&gt; --share-port</code>.</p>
 <aside class="note"><strong>Vite and similar tools</strong> ignore the <code>PORT</code> variable and quietly pick the next free port. Keep <code>--port &lt;n&gt; --strictPort</code> in their command so they fail loudly instead.</aside>`,
   },
   {
@@ -387,6 +390,9 @@ const fr = [
   <li><strong>Reprendre dans Vigie</strong> : l’arrête et démarre votre serveur sous Vigie d’un seul coup.</li>
 </ul>
 <p>En ligne de commande, la même reprise s’écrit <code>vigie start &lt;serveur&gt; --takeover</code>.</p>
+<h3>Un port par serveur</h3>
+<p>Un serveur qui démarre, ou que Vigie relance après des vérifications de santé ratées, garde son port même si rien n’y répond encore. L’écran Ports l’affiche <em>pas encore en écoute</em>, et Vigie refuse d’y démarrer un autre serveur.</p>
+<p>Quand vous ajoutez un serveur, ou changez son port, pour un port qu’un autre serveur a déjà dans ses réglages, Vigie nomme ce serveur et propose le port libre suivant. Choisissez <strong>Partager le port quand même</strong> seulement pour des serveurs qui ne tournent jamais en même temps, comme deux copies d’un même projet. En ligne de commande : <code>vigie register --port &lt;n&gt; --share-port</code>.</p>
 <aside class="note"><strong>Vite et les outils du même genre</strong> ignorent la variable <code>PORT</code> et prennent discrètement le port libre suivant. Gardez <code>--port &lt;n&gt; --strictPort</code> dans leur commande pour qu’ils échouent clairement à la place.</aside>`,
   },
   {

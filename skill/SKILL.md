@@ -16,7 +16,7 @@ no background jobs, no "try port 3001 instead".
 ```bash
 vigie status --json          # every project, server, port, pid, state, health
 vigie resolve --json         # the server registered for the current directory
-vigie port 3000 --json       # who owns a port: managed, external or system
+vigie port 3000 --json       # who holds a port (managed, external, system), which servers are configured on it
 ```
 
 All commands print JSON with `--json`. Errors are `{ "ok": false, "error": { "code", "message" } }`.
@@ -26,10 +26,13 @@ All commands print JSON with `--json`. Errors are `{ "ok": false, "error": { "co
 | What you see | Do |
 |---|---|
 | Server `state: "running"` and `healthy: true` | Use its `url`. Do not start anything. |
-| `state: "starting"` | Wait, then re-check `vigie status --json`. |
+| `state: "starting"` or `"restarting"` | Wait, then re-check `vigie status --json`. Its port is taken even while nothing answers on it. |
 | `state: "stopped"` or `"failed"` | `vigie start <project/server> --json` |
 | `state: "unhealthy"` | Read `vigie logs <server> --lines 80`, then fix or `vigie restart <server>`. |
-| `resolve` returns `project: null` | Register it once: `vigie register --command "<cmd>" --port <n>`, then start it. |
+| `resolve` returns `project: null` | Pick a port (next row), then register once: `vigie register --command "<cmd>" --port <n>`, and start it. |
+| You need a port for a new server | Run `vigie status --json` and rule out every `port` of every server, in every project, whatever its `state`. Then `vigie port <n> --json` must list no `owners` and no `configured` server. A port nothing listens on is not enough: a server that is restarting does not listen. |
+| `PORT_CONFLICT` from `register` | Another server is configured on that port. Re-run with `--port <error.details.suggestedPort>`. Add `--share-port` only if the user confirms the two never run at the same time. |
+| `PORT_IN_USE` with a `managed` owner | Another Vigie server holds the port (`listening: false` while it starts or restarts). Use that server, or another port. Do not stop it to free the port. |
 | `PORT_IN_USE` with an `external` owner | Tell the user which process holds the port. Only run `vigie start <server> --takeover` if they agree. |
 
 ## 3. Read

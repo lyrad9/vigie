@@ -40,8 +40,8 @@ export function createApi(sup, { port, onShutdown }) {
     ['GET', '/api/status', () => sup.status()],
     ['GET', '/api/resolve', (_, q) => resolve(sup, q)],
     ['GET', '/api/ports', () => sup.portsReport()],
-    ['GET', '/api/port/:port', async (p) => ({ port: Number(p.port), owners: await sup.portOwners(Number(p.port)) })],
-    ['GET', '/api/inspect', (_, q) => inspectDirectory(q.get('root'))],
+    ['GET', '/api/port/:port', (p) => sup.portInfo(Number(p.port))],
+    ['GET', '/api/inspect', (_, q) => inspectDirectory(q.get('root'), { port: Number(q.get('port')) || null })],
     ['GET', '/api/servers/:ref', (p) => sup.view(sup.find(p.ref).server.id)],
     ['GET', '/api/servers/:ref/logs', (p, q) => {
       const text = sup.logs(p.ref, Number(q.get('chars')) || 200_000);
