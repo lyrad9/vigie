@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { site } from "@/lib/site";
 import { Accent, Dot, Headline, Icon, Logo } from "./ui";
 
 function StepCard({
@@ -84,7 +85,7 @@ export function Steps() {
               <div className="flex items-center gap-3">
                 <Logo size={36} id="step1" />
                 <div className="min-w-0">
-                  <p className="font-display font-bold text-ink">Vigie Setup 0.1.0</p>
+                  <p className="font-display font-bold text-ink">Vigie Setup {site.version}</p>
                   <p className="text-caption text-ink-faint">Installation terminée</p>
                 </div>
               </div>
