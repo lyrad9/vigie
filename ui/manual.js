@@ -32,7 +32,7 @@ const en = [
 <ol>
   <li>Click <strong>Add project</strong> at the bottom of the sidebar.</li>
   <li>In <strong>Folder</strong>, paste the path of your project, for example <code>D:\\Code\\my-app</code>. Vigie reads its <code>package.json</code> and fills in the rest: the name, the package manager, the framework, the command and the usual port.</li>
-  <li>Check the <strong>Command</strong> and the <strong>Port</strong>. For Next.js, Vigie proposes <code>pnpm dev -p 3000</code>; for Vite, <code>npm run dev -- --port 5173 --strictPort</code>. The port is written into the command on purpose: the server can never move to another port without telling you.</li>
+  <li>Check the <strong>Command</strong> and the <strong>Port</strong>. For Next.js, Vigie proposes <code>pnpm dev -p 3000</code>; for Vite, <code>npm run dev -- --port 5173 --strictPort</code>. The port is written into the command on purpose: the server can never move to another port without telling you. If another server already has the usual port, Vigie proposes the next free one and says which server has it.</li>
   <li>Click <strong>Add project</strong>.</li>
 </ol>
 <h3>3. Start it</h3>
@@ -141,6 +141,9 @@ const en = [
   <li><strong>Move to Vigie</strong>: stops it and starts your server under Vigie in one go.</li>
 </ul>
 <p>From the command line, the same takeover is <code>vigie start &lt;server&gt; --takeover</code>.</p>
+<h3>One port per server</h3>
+<p>A server that is starting, or that Vigie is restarting after failed health checks, keeps its port even though nothing answers on it yet. The Ports screen lists it as <em>not listening yet</em>, and Vigie refuses to start another server on that port.</p>
+<p>When you add a server, or change its port, to a port another server already has in its settings, Vigie names that server and offers the next free port. Choose <strong>Share the port anyway</strong> only for servers that never run at the same time, such as two copies of one project. From the command line: <code>vigie register --port &lt;n&gt; --share-port</code>.</p>
 <aside class="note"><strong>Vite and similar tools</strong> ignore the <code>PORT</code> variable and quietly pick the next free port. Keep <code>--port &lt;n&gt; --strictPort</code> in their command so they fail loudly instead.</aside>`,
   },
   {
@@ -278,7 +281,7 @@ const fr = [
 <ol>
   <li>Cliquez sur <strong>Ajouter un projet</strong>, en bas de la barre latérale.</li>
   <li>Dans <strong>Dossier</strong>, collez le chemin de votre projet, par exemple <code>D:\\Code\\mon-app</code>. Vigie lit son <code>package.json</code> et remplit le reste : le nom, le gestionnaire de paquets, le framework, la commande et le port habituel.</li>
-  <li>Vérifiez la <strong>Commande</strong> et le <strong>Port</strong>. Pour Next.js, Vigie propose <code>pnpm dev -p 3000</code> ; pour Vite, <code>npm run dev -- --port 5173 --strictPort</code>. Le port est écrit dans la commande exprès : le serveur ne peut jamais partir sur un autre port sans vous prévenir.</li>
+  <li>Vérifiez la <strong>Commande</strong> et le <strong>Port</strong>. Pour Next.js, Vigie propose <code>pnpm dev -p 3000</code> ; pour Vite, <code>npm run dev -- --port 5173 --strictPort</code>. Le port est écrit dans la commande exprès : le serveur ne peut jamais partir sur un autre port sans vous prévenir. Si un autre serveur a déjà le port habituel, Vigie propose le port libre suivant et dit quel serveur l’occupe.</li>
   <li>Cliquez sur <strong>Ajouter un projet</strong>.</li>
 </ol>
 <h3>3. Le démarrer</h3>
@@ -387,6 +390,9 @@ const fr = [
   <li><strong>Reprendre dans Vigie</strong> : l’arrête et démarre votre serveur sous Vigie d’un seul coup.</li>
 </ul>
 <p>En ligne de commande, la même reprise s’écrit <code>vigie start &lt;serveur&gt; --takeover</code>.</p>
+<h3>Un port par serveur</h3>
+<p>Un serveur qui démarre, ou que Vigie relance après des vérifications de santé ratées, garde son port même si rien n’y répond encore. L’écran Ports l’affiche <em>pas encore en écoute</em>, et Vigie refuse d’y démarrer un autre serveur.</p>
+<p>Quand vous ajoutez un serveur, ou changez son port, pour un port qu’un autre serveur a déjà dans ses réglages, Vigie nomme ce serveur et propose le port libre suivant. Choisissez <strong>Partager le port quand même</strong> seulement pour des serveurs qui ne tournent jamais en même temps, comme deux copies d’un même projet. En ligne de commande : <code>vigie register --port &lt;n&gt; --share-port</code>.</p>
 <aside class="note"><strong>Vite et les outils du même genre</strong> ignorent la variable <code>PORT</code> et prennent discrètement le port libre suivant. Gardez <code>--port &lt;n&gt; --strictPort</code> dans leur commande pour qu’ils échouent clairement à la place.</aside>`,
   },
   {

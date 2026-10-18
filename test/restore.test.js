@@ -130,7 +130,14 @@ test('at boot, a leftover of the same server is replaced, and nothing else is to
       return r.data.state === 'running' && r.data.healthy === true ? r.data : null;
     },
     { timeout: 90000, what: 'web restored and healthy' },
-  );
+  ).catch(async (err) => {
+    const state = await api('GET', `/servers/${web.id}`).catch(() => null);
+    const logs = await api('GET', `/servers/${web.id}/logs?lines=40`).catch(() => null);
+    if (state) state.data.logs = logs?.data?.text?.slice(0, 1500);
+    if (state) state.data.owners = (await api('GET', `/port/${webPort}`).catch(() => null))?.data?.owners;
+    const log = fs.existsSync(path.join(home, 'daemon.log')) ? fs.readFileSync(path.join(home, 'daemon.log'), 'utf8') : '(no daemon.log)';
+    throw new Error(`${err.message}\nold shell ${orphanRoot}, orphan server ${orphanPid}\nweb:${JSON.stringify(state?.data)}\ndaemon.log:\n${log}`);
+  });
   const servedBy = Number(await (await fetch(`http://127.0.0.1:${webPort}/`)).text());
   assert.notEqual(servedBy, orphanPid, 'the port is now served by the new process');
   assert.ok(view.pid);
