@@ -37,12 +37,15 @@ jobs:
       - run: npm test
       - name: Package (unsigned)
         run: npx electron-builder --win --publish never
+      # The installed app updates itself from the latest release: it reads latest.yml, then
+      # downloads the installer it names (the .blockmap lets it fetch only what changed).
       - name: Publish the GitHub release
         shell: bash
         run: |
-          installer=$(ls dist/*.exe | head -n 1)
+          files=(dist/*.exe dist/*.exe.blockmap dist/latest.yml)
+          for f in "${files[@]}"; do [ -f "$f" ] || { echo "Missing $f" >&2; exit 1; }; done
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$installer" --clobber
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "$installer" --title "Vigie ${GITHUB_REF_NAME#v}" --generate-notes --latest
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "Vigie ${GITHUB_REF_NAME#v}" --generate-notes --latest
           fi

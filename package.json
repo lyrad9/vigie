@@ -1,7 +1,7 @@
 {
   "name": "vigie",
   "productName": "Vigie",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "One supervisor for every local dev server. Your agents read the live state instead of starting the same server twice.",
   "author": "Daryl Ngako (https://lyrad.dev)",
   "type": "module",
@@ -53,8 +53,16 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "Vigie"
+      "shortcutName": "Vigie",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "lyrad9",
+        "repo": "vigie"
+      }
+    ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
@@ -72,5 +80,8 @@
   "devDependencies": {
     "electron": "^44.9.0",
     "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
