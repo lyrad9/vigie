@@ -33,7 +33,7 @@ et Linux**.
 
 ### Avec l'installateur (sans Node)
 
-1. Lance `Vigie-Setup-0.1.2.exe`, puis ouvre Vigie. L'icône apparaît dans la zone de notification.
+1. Lance `Vigie-Setup-0.1.3.exe`, puis ouvre Vigie. L'icône apparaît dans la zone de notification.
 2. Clic droit sur l'icône → **Install command-line tool**. Vigie écrit un petit lanceur
    `vigie.cmd` (et `vigie` pour Git Bash) dans `%LOCALAPPDATA%\Vigie\bin` et ajoute ce dossier
    à ton PATH utilisateur. Rien n'est modifié avant ce clic.
