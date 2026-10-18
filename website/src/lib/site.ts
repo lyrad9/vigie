@@ -5,7 +5,7 @@ export const site = {
   name: "Vigie",
   url: "https://vigie.lyrad.dev",
   tagline: "Superviseur de serveurs de dev locaux pour agents IA",
-  version: "0.1.3",
+  version: "0.1.4",
   repo: REPO,
   download: `${REPO}/releases/latest`,
   releases: `${REPO}/releases`,
