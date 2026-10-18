@@ -82,10 +82,11 @@ npm run dist         # produit dist/Vigie-Setup-<version>.exe et dist/latest.yml
 
 ```bash
 vigie register --port 3000          # dans le dossier d'un projet : devine la commande depuis package.json
+                                    # (refusé si un autre serveur a déjà ce port ; --share-port pour le partager)
 vigie start                         # démarre le serveur du dossier courant
 vigie status --json                 # tout l'état, en JSON
 vigie resolve --json                # le serveur enregistré pour ce dossier
-vigie port 3000                     # qui occupe ce port ?
+vigie port 3000                     # qui occupe ce port, et quels serveurs y sont configurés ?
 vigie ports                         # tous les ports en écoute, groupés par propriétaire
 vigie logs dev -f                   # suivre les logs en direct
 vigie start web --takeover          # arrêter le process externe qui tient le port, puis démarrer

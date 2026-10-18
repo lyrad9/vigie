@@ -41,7 +41,8 @@ function runScript(pm, script, extra) {
   return pm === 'npm' ? `${base} -- ${extra}` : `${base} ${extra}`;
 }
 
-export function inspectDirectory(root) {
+/** `port` replaces the framework's default port in the suggestion, command included. */
+export function inspectDirectory(root, { port: wanted = null } = {}) {
   const abs = path.resolve(String(root || ''));
   let stat = null;
   try {
@@ -63,16 +64,18 @@ export function inspectDirectory(root) {
     const script = ['dev', 'start:dev', 'serve', 'start'].find((s) => result.scripts[s]);
     const fw = FRAMEWORKS.find(([dep]) => deps[dep]);
     if (script) {
-      const port = fw ? fw[2] : 3000;
+      const port = wanted || (fw ? fw[2] : 3000);
       const pinned = fw?.[3] && script === 'dev' ? fw[3](port) : '';
       result.suggestion = { name: script === 'start' ? 'web' : 'dev', command: runScript(pm, script, pinned), port, framework: fw?.[1] ?? null, packageManager: pm };
     }
     return result;
   }
   if (fs.existsSync(path.join(abs, 'manage.py'))) {
-    result.suggestion = { name: 'web', command: 'python manage.py runserver 8000', port: 8000, framework: 'Django' };
+    const port = wanted || 8000;
+    result.suggestion = { name: 'web', command: `python manage.py runserver ${port}`, port, framework: 'Django' };
   } else if (fs.existsSync(path.join(abs, 'Gemfile')) && fs.existsSync(path.join(abs, 'config.ru'))) {
-    result.suggestion = { name: 'web', command: 'bin/rails server -p 3000', port: 3000, framework: 'Rails' };
+    const port = wanted || 3000;
+    result.suggestion = { name: 'web', command: `bin/rails server -p ${port}`, port, framework: 'Rails' };
   }
   return result;
 }

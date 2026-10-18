@@ -662,6 +662,7 @@ dialog legend { color: var(--muted); font-size: var(--fs-sm); font-weight: 600; 
 .dlg-actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 .spacer { flex: 1; }
 .form-error { color: var(--bad) !important; font-size: var(--fs-sm); }
+.form-error .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
 /* ------------------------------------------------------------- toasts */
 

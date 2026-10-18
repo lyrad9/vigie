@@ -5,6 +5,7 @@ import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { VigieError } from './errors.js';
 import { checkHealth } from './health.js';
+import { inspectDirectory } from './inspect.js';
 import { LogBuffer } from './logs.js';
 import { IS_WIN, LOG_DIR, STATE_FILE, VERSION } from './paths.js';
 import { descendantsOf, isProtected, killTree, listListeners, listProcesses } from './platform.js';
@@ -225,7 +226,12 @@ export class Supervisor extends EventEmitter {
     if (r.child && ACTIVE.has(r.state)) return this.view(server.id);
     if (r.state === 'stopping') await this.waitExit(r, 10000);
     clearTimeout(r.timers.restart);
-    if (server.port) await this.ensurePortFree(server, takeover);
+    if (server.port) {
+      await this.ensurePortFree(server, takeover);
+      // Again with no await before the spawn: servers started together (at boot) all found the port free.
+      const rival = this.reservations([], server.port).find((o) => o.serverId !== server.id);
+      if (rival) throw portTaken(server.port, rival, [rival]);
+    }
     r.restartCount = 0;
     this.spawnServer(project, server, r);
     return this.view(server.id);
@@ -298,14 +304,15 @@ export class Supervisor extends EventEmitter {
     return [...this.rt.values()].filter((r) => r.pid).map((r) => r.pid);
   }
 
-  /** Throws PORT_IN_USE unless the port is free; with takeover, stops the external owner first. */
+  /**
+   * Throws PORT_IN_USE unless the port is free; with takeover, stops the external owner first.
+   * Another active Vigie server configured on the port holds it even while it is not listening.
+   */
   async ensurePortFree(server, takeover) {
-    const owners = await this.portOwners(server.port);
+    const owners = (await this.portOwners(server.port)).filter((o) => o.serverId !== server.id);
     if (!owners.length) return;
     const managed = owners.find((o) => o.kind === 'managed');
-    if (managed) {
-      throw new VigieError('PORT_IN_USE', `Port ${server.port} is used by Vigie server ${managed.serverName}`, { port: server.port, owners }, 409);
-    }
+    if (managed) throw portTaken(server.port, managed, owners);
     if (!takeover) {
       const o = owners[0];
       throw new VigieError('PORT_IN_USE', `Port ${server.port} is used by ${o.name || 'an unknown process'} (pid ${o.pid}), started outside Vigie`, { port: server.port, owners }, 409);
@@ -528,7 +535,7 @@ export class Supervisor extends EventEmitter {
     this.emit('config');
   }
 
-  addProject(input) {
+  async addProject(input) {
     const servers = (input.servers || []).map((s) => normalizeServer(s));
     const project = normalizeProject(
       { ...input, color: input.color || PROJECT_COLORS[this.config.projects.length % PROJECT_COLORS.length], servers },
@@ -537,6 +544,10 @@ export class Supervisor extends EventEmitter {
     if (!fs.existsSync(project.root)) throw new VigieError('ROOT_NOT_FOUND', `Directory not found: ${project.root}`);
     const dup = this.config.projects.find((p) => p.name.toLowerCase() === project.name.toLowerCase());
     if (dup) throw new VigieError('DUPLICATE_PROJECT', `A project named "${project.name}" already exists`);
+    for (const [i, server] of project.servers.entries()) {
+      const before = project.servers.slice(0, i).map((s) => claim(project, s, 'stopped'));
+      await this.checkPort(server.port, { sharePort: input.sharePort, pending: before });
+    }
     this.config.projects.push(project);
     this.commit();
     return this.status().projects.find((p) => p.id === project.id);
@@ -559,18 +570,19 @@ export class Supervisor extends EventEmitter {
     return { removed: project.id };
   }
 
-  addServer(projectRef, input) {
+  async addServer(projectRef, input) {
     const project = this.project(projectRef);
     const server = normalizeServer(input);
     if (project.servers.some((s) => s.name.toLowerCase() === server.name.toLowerCase())) {
       throw new VigieError('DUPLICATE_SERVER', `Project "${project.name}" already has a server named "${server.name}"`);
     }
+    await this.checkPort(server.port, { sharePort: input.sharePort });
     project.servers.push(server);
     this.commit();
     return this.view(server.id);
   }
 
-  updateServer(ref, patch) {
+  async updateServer(ref, patch) {
     const { project, server } = this.find(ref);
     const merged = { ...server, ...pick(patch, ['name', 'command', 'port', 'cwd', 'env', 'autostart', 'maxRestartAttempts']) };
     if (patch.health) merged.health = { ...server.health, ...patch.health };
@@ -579,6 +591,8 @@ export class Supervisor extends EventEmitter {
     if (project.servers.some((s) => s !== server && s.name.toLowerCase() === next.name.toLowerCase())) {
       throw new VigieError('DUPLICATE_SERVER', `Project "${project.name}" already has a server named "${next.name}"`);
     }
+    // Only a port that changes is checked: saving a server that already shares its port stays possible.
+    if (next.port !== server.port) await this.checkPort(next.port, { except: server.id, sharePort: patch.sharePort });
     Object.assign(server, next, { id: server.id });
     this.commit();
     return this.view(server.id);
@@ -594,12 +608,107 @@ export class Supervisor extends EventEmitter {
 
   // ----------------------------------------------------------------- ports
 
-  /** Every listener on `port`, classified as managed / external / system. */
+  /**
+   * Every listener on `port`, classified as managed / external / system, plus the active server
+   * configured on it while it does not listen (`listening: false`): starting, between restarts…
+   */
   async portOwners(port) {
     const listeners = await listListeners();
-    if (!listeners.some((l) => l.port === port)) return [];
+    if (!listeners.some((l) => l.port === port)) return this.reservations([], port);
     // Classify every listener so a server's extra ports are known to be internal, then keep this one.
     return this.classify(listeners, await listProcesses({ fresh: true })).filter((o) => o.port === port);
+  }
+
+  /** `vigie port <n>`: who holds the port now, and which servers are configured on it whatever their state. */
+  async portInfo(port) {
+    return { port, owners: await this.portOwners(port), configured: this.configuredOn(port) };
+  }
+
+  /** Servers configured on `port`, except the one with id `except`, as { serverId, serverName, projectId, port, state }. */
+  configuredOn(port, except = null) {
+    if (!port) return [];
+    return this.config.projects.flatMap((p) => p.servers.filter((s) => s.port === port && s.id !== except).map((s) => claim(p, s, this.rt.get(s.id)?.state)));
+  }
+
+  /**
+   * An active server holds its configured port even when nothing listens on it yet: while it boots,
+   * or while Vigie restarts it after failed health checks. One `listening: false` entry for each such
+   * server (on `port` only, when given) that `ports` does not already show listening there.
+   */
+  reservations(ports, port) {
+    const out = [];
+    for (const project of this.config.projects) {
+      for (const server of project.servers) {
+        const r = this.rt.get(server.id);
+        if (!server.port || (port && server.port !== port) || !ACTIVE.has(r?.state)) continue;
+        if (ports.some((p) => p.serverId === server.id && p.port === server.port)) continue;
+        out.push({
+          port: server.port,
+          pid: r.pid,
+          addresses: [],
+          name: '',
+          command: server.command,
+          user: '',
+          kind: 'managed',
+          listening: false,
+          state: r.state,
+          serverId: server.id,
+          serverName: `${project.name}/${server.name}`,
+          projectId: project.id,
+          internal: false,
+          primaryPort: server.port,
+        });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Refuses a port another server is configured on, naming it and the next free port: two servers
+   * on one port cannot run together. `sharePort` allows it for servers never run at the same time.
+   * `pending` lists servers not saved yet (the other servers of a project being added).
+   */
+  async checkPort(port, { except = null, sharePort = false, pending = [] } = {}) {
+    if (!port || sharePort) return;
+    const others = [...this.configuredOn(port, except), ...pending.filter((x) => x.port === port)];
+    if (!others.length) return;
+    const suggestedPort = await this.freePort(port + 1, { reserved: pending.map((x) => x.port), except });
+    const names = others.map((x) => x.serverName).join(', ');
+    throw new VigieError(
+      'PORT_CONFLICT',
+      `Port ${port} is already configured for ${names}${suggestedPort ? `; port ${suggestedPort} is free` : ''}`,
+      { port, servers: others, suggestedPort },
+      409,
+    );
+  }
+
+  /** The first port from `from` up that no server (but `except`) is configured on and nothing listens on. */
+  async freePort(from, { reserved = [], except = null, listeners = null } = {}) {
+    const taken = new Set([this.apiPort, ...reserved]);
+    for (const p of this.config.projects) for (const s of p.servers) if (s.port && s.id !== except) taken.add(s.port);
+    for (const l of listeners ?? (await listListeners())) taken.add(l.port);
+    for (let port = from; port <= 65535; port++) if (!taken.has(port)) return port;
+    return null;
+  }
+
+  /**
+   * The server `vigie register` would guess for a folder. Without an explicit `port`, a framework
+   * default that another server is configured on, or that something listens on, moves to the next
+   * free port (command included); `portMovedFrom` and `portTakenBy` say why.
+   */
+  async inspect(root, { port = null } = {}) {
+    const info = inspectDirectory(root, { port });
+    const wanted = info.suggestion?.port;
+    if (port || !wanted) return info;
+    const listeners = await listListeners();
+    const servers = this.configuredOn(wanted).map((s) => s.serverName);
+    const listening = listeners.some((l) => l.port === wanted);
+    if (!servers.length && !listening) return info;
+    const free = await this.freePort(wanted, { listeners });
+    if (!free) return info;
+    const moved = inspectDirectory(root, { port: free });
+    Object.assign(moved.suggestion, { portMovedFrom: wanted, portTakenBy: { servers, listening } });
+    return moved;
   }
 
   classify(listeners, procs) {
@@ -624,11 +733,13 @@ export class Supervisor extends EventEmitter {
         command: proc?.command || '',
         user: proc?.user || l.user || '',
         kind,
+        listening: true,
         serverId: found?.server.id ?? null,
         serverName: found ? `${found.project.name}/${found.server.name}` : null,
         projectId: found?.project.id ?? null,
       };
     });
+    ports.push(...this.reservations(ports));
     return markInternal(ports, (id) => this.lookup(id)?.server.port ?? null);
   }
 
@@ -638,7 +749,8 @@ export class Supervisor extends EventEmitter {
     const count = (k) => ports.filter((p) => p.kind === k && !p.internal).length;
     return {
       summary: {
-        listening: ports.length,
+        listening: ports.filter((p) => p.listening).length,
+        reserved: ports.filter((p) => !p.listening).length,
         managed: count('managed'),
         internal: ports.filter((p) => p.internal).length,
         external: count('external'),
@@ -662,11 +774,23 @@ export class Supervisor extends EventEmitter {
   }
 }
 
+/** A server configured on a port, as listed in PORT_CONFLICT errors and `vigie port`. */
+function claim(project, server, state) {
+  return { serverId: server.id, serverName: `${project.name}/${server.name}`, projectId: project.id, port: server.port, state: state ?? 'stopped' };
+}
+
+/** PORT_IN_USE for a port held by another Vigie server, listening or not. */
+function portTaken(port, owner, owners) {
+  const how = owner.listening === false ? `, which is ${owner.state} and not listening right now` : '';
+  return new VigieError('PORT_IN_USE', `Port ${port} is used by Vigie server ${owner.serverName}${how}`, { port, owners }, 409);
+}
+
 /**
  * A managed server often listens on more than its own port (Next.js workers, HMR sockets…).
- * Its listener on the configured port is the primary one; the others are flagged `internal`
- * so they read as part of that server, not as another server. Without a listener on the
- * configured port, the lowest port stands in as primary. Sets `internal` and `primaryPort`.
+ * Its entry on the configured port (a listener, or a reservation while it boots) is the primary
+ * one; the others are flagged `internal` so they read as part of that server, not as another
+ * server. Without an entry on the configured port, the lowest port stands in as primary.
+ * Sets `internal` and `primaryPort`.
  */
 export function markInternal(ports, configuredPort) {
   const byServer = new Map();
