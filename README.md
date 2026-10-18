@@ -144,8 +144,8 @@ scripts/dev-daemon.js daemon de test isolé (port 7755, config dans .dev-home/)
 
 ## Le site
 
-La landing page est un projet Next.js indépendant dans [`website/`](website/), entièrement
-statique (déployable tel quel sur Vercel, Netlify ou GitHub Pages) :
+La landing page est en ligne sur **https://vigie.lyrad.dev**. C'est un projet Next.js indépendant dans
+[`website/`](website/), entièrement statique, déployé sur Vercel à chaque push sur `main` :
 
 ```bash
 cd website
