@@ -292,12 +292,20 @@ async function run(cmd, rest, values) {
       const r = await api('GET', '/ports');
       if (values.json) return printJson(r);
       const s = r.summary;
-      console.log(`${s.listening} listening · ${s.managed} managed · ${s.external} external · ${s.system} system\n`);
+      const internal = s.internal ? ` (+${s.internal} internal)` : '';
+      console.log(`${s.listening} listening · ${s.managed} managed${internal} · ${s.external} external · ${s.system} system\n`);
+      const internals = r.ports.filter((p) => p.internal);
+      const shown = new Set();
       for (const kind of ['managed', 'external', 'system']) {
-        const list = r.ports.filter((p) => p.kind === kind);
+        const list = r.ports.filter((p) => p.kind === kind && !p.internal);
         if (!list.length) continue;
         console.log(c.bold({ managed: 'Managed by Vigie', external: 'Started outside Vigie', system: 'System (read only)' }[kind]));
-        for (const o of list) printPortEntry(o);
+        for (const o of list) {
+          // A server's other listeners are listed under its main port, once.
+          const own = kind === 'managed' && !shown.has(o.serverId) ? internals.filter((i) => i.serverId === o.serverId) : [];
+          shown.add(o.serverId);
+          printPortEntry(o, own);
+        }
         console.log();
       }
       return;
@@ -323,11 +331,17 @@ async function run(cmd, rest, values) {
   }
 }
 
-function printPortEntry(o) {
+function printPortEntry(o, internals = []) {
   const badge = { managed: c.green('Managed'), external: c.yellow('External'), system: c.dim('Protected') }[o.kind];
   const who = o.serverName ? c.bold(o.serverName) : o.name;
   console.log(`  ${pad(':' + o.port, 7)} ${badge.padEnd(useColor ? 18 : 9)} ${who} ${c.dim(`pid ${o.pid}${o.user ? ' · ' + o.user : ''}`)}`);
+  if (o.internal) console.log(c.dim(`          internal port of ${o.serverName}, main port :${o.primaryPort}`));
   if (o.command && o.kind !== 'system') console.log(c.dim(`          ${o.command.slice(0, 110)}`));
+  if (internals.length) {
+    const same = internals.every((i) => i.pid === o.pid);
+    const list = internals.map((i) => (same ? i.port : `${i.port} (pid ${i.pid})`)).join(', ');
+    console.log(c.dim(`          +${internals.length} internal port${internals.length > 1 ? 's' : ''}: ${list}${same ? ' (same process)' : ''}`));
+  }
 }
 
 async function waitReady(id) {

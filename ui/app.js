@@ -233,7 +233,16 @@ async function refreshPorts() {
   if (state.route.view === 'ports') portsTimer = setTimeout(refreshPorts, 5000);
 }
 
-function portRow(o) {
+/** Muted line under a server's main port listing its other listeners, e.g. Next.js workers. */
+function internalNote(o, internals) {
+  if (!internals.length) return '';
+  const same = internals.every((i) => i.pid === o.pid);
+  const list = internals.map((i) => (same ? i.port : `${i.port} (PID ${i.pid})`)).join(', ');
+  const title = `Opened by ${o.serverName} itself, not another server`;
+  return `<div class="pi" title="${esc(title)}">+${internals.length} internal port${internals.length > 1 ? 's' : ''}: ${esc(list)}${same ? ' (same process)' : ''}</div>`;
+}
+
+function portRow(o, internals = []) {
   const http = o.kind !== 'system' ? `<a class="btn tiny ghost" href="http://localhost:${o.port}" target="_blank" rel="noreferrer">Open</a>` : '';
   const action =
     o.kind === 'managed'
@@ -249,6 +258,7 @@ function portRow(o) {
       <div style="min-width:0">
         <div class="pn">${esc(label)} <span class="badge ${o.kind}">${badge}</span></div>
         <div class="pm" title="${esc(o.command)}">${esc(o.name)} · PID ${o.pid}${o.user ? ' · ' + esc(o.user) : ''}${o.kind === 'external' && o.command ? ' · ' + esc(o.command) : ''}</div>
+        ${internalNote(o, internals)}
       </div>
       <div class="pa">${http}${action}</div>
     </div>`;
@@ -267,17 +277,34 @@ function renderPorts() {
   if (!r) return;
   const q = $('#ports-search').value.trim().toLowerCase();
   const match = (o) => !q || [o.port, o.name, o.command, o.serverName, o.pid].some((v) => String(v ?? '').toLowerCase().includes(q));
-  const ports = r.ports.filter(match);
+  // A server's internal listeners ride on its main row, and a search hit on either shows both.
+  const rows = [];
+  const mainRow = new Map();
+  for (const o of r.ports.filter((p) => !p.internal)) {
+    const row = { o, internals: [] };
+    if (o.kind === 'managed' && !mainRow.has(o.serverId)) mainRow.set(o.serverId, row);
+    rows.push(row);
+  }
+  for (const o of r.ports.filter((p) => p.internal)) {
+    const main = mainRow.get(o.serverId);
+    if (main) main.internals.push(o);
+    else rows.push({ o, internals: [] });
+  }
+  const shown = rows.filter((x) => match(x.o) || x.internals.some(match));
   const s = r.summary;
-  $('#ports-summary').textContent = `${s.listening} listening · ${s.managed} managed · ${s.external} external · ${s.system} system`;
+  const internal = s.internal ? ` (+${s.internal} internal)` : '';
+  $('#ports-summary').textContent = `${s.listening} listening · ${s.managed} managed${internal} · ${s.external} external · ${s.system} system`;
 
   const html = [];
   for (const p of state.status.projects) {
-    const list = ports.filter((o) => o.projectId === p.id);
+    const list = shown.filter((x) => x.o.projectId === p.id);
     if (!list.length) continue;
     const mark = `<span class="mark" style="background:${esc(p.color)}">${esc(p.name[0]?.toUpperCase())}</span>`;
-    html.push(group(mark, p.name, tildify(p.root), `${list.length} port${list.length > 1 ? 's' : ''}`, list.map(portRow)));
+    const extra = list.reduce((n, x) => n + x.internals.length, 0);
+    const count = `${list.length} port${list.length > 1 ? 's' : ''}${extra ? ` · +${extra} internal` : ''}`;
+    html.push(group(mark, p.name, tildify(p.root), count, list.map((x) => portRow(x.o, x.internals))));
   }
+  const ports = shown.map((x) => x.o);
   const external = ports.filter((o) => o.kind === 'external');
   if (external.length) {
     const mark = `<span class="mark" style="background:var(--orange)">!</span>`;
