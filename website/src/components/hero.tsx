@@ -5,23 +5,41 @@ import { Accent, Headline, Icon, Lede, PrimaryButton, QuietButton } from "./ui";
 
 const delay = (i: number) => ({ "--i": i }) as CSSProperties;
 
-/** Concentric range rings: the lookout's only ornament. `strength` scales the stroke opacity. */
-export function RangeRings({ className = "", stroke = "var(--signal)", strength = 1 }: { className?: string; stroke?: string; strength?: number }) {
+/**
+ * Concentric range rings: the lookout's only ornament. `strength` scales the stroke opacity;
+ * `dottedOnly` keeps just the dotted outer ring, without the solid rings and the crosshair.
+ */
+export function RangeRings({
+  className = "",
+  stroke = "var(--signal)",
+  strength = 1,
+  dottedOnly = false,
+}: {
+  className?: string;
+  stroke?: string;
+  strength?: number;
+  dottedOnly?: boolean;
+}) {
+  const rings = [110, 190, 270, 350];
   return (
     <svg viewBox="0 0 800 800" className={className} aria-hidden="true" fill="none">
-      {[110, 190, 270, 350].map((r, i) => (
-        <circle
-          key={r}
-          cx="400"
-          cy="400"
-          r={r}
-          stroke={stroke}
-          strokeOpacity={Math.min(1, (0.22 - i * 0.04) * strength)}
-          strokeWidth="1.5"
-          strokeDasharray={i === 3 ? "2 10" : undefined}
-        />
-      ))}
-      <path d="M400 20v760M20 400h760" stroke={stroke} strokeOpacity={0.07 * strength} />
+      {rings.map((r, i) => {
+        const dotted = i === rings.length - 1;
+        if (dottedOnly && !dotted) return null;
+        return (
+          <circle
+            key={r}
+            cx="400"
+            cy="400"
+            r={r}
+            stroke={stroke}
+            strokeOpacity={Math.min(1, (0.22 - i * 0.04) * strength)}
+            strokeWidth="1.5"
+            strokeDasharray={dotted ? "2 10" : undefined}
+          />
+        );
+      })}
+      {dottedOnly ? null : <path d="M400 20v760M20 400h760" stroke={stroke} strokeOpacity={0.07 * strength} />}
     </svg>
   );
 }

@@ -7,8 +7,8 @@ export function ClosingCta() {
   return (
     <section className="px-3 pt-8 pb-3 sm:px-4" aria-labelledby="cta-title">
       <div className="relative isolate overflow-hidden rounded-[28px] bg-band ring-1 ring-transparent dark:ring-white/10 px-5 py-24 text-center text-band-text sm:rounded-[44px] sm:py-32">
-        <RangeRings stroke="oklch(0.72 0.15 255)" className="pointer-events-none absolute -top-[26rem] -left-[22rem] -z-10 w-[56rem] max-w-none" />
-        <RangeRings stroke="oklch(0.72 0.15 255)" className="pointer-events-none absolute -right-[24rem] -bottom-[30rem] -z-10 w-[60rem] max-w-none" />
+        <RangeRings dottedOnly strength={2.2} stroke="oklch(0.72 0.15 255)" className="pointer-events-none absolute -top-[26rem] -left-[22rem] -z-10 w-[56rem] max-w-none" />
+        <RangeRings dottedOnly strength={2.2} stroke="oklch(0.72 0.15 255)" className="pointer-events-none absolute -right-[24rem] -bottom-[30rem] -z-10 w-[60rem] max-w-none" />
 
         <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-1.5 text-small text-band-muted">
           Gratuit · open source · licence MIT
