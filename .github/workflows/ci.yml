@@ -90,6 +90,9 @@ jobs:
         run: npx electron-builder --win --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Check the update files exist
+        shell: bash
+        run: ls dist/*.exe dist/*.exe.blockmap dist/latest.yml && cat dist/latest.yml
       - uses: actions/upload-artifact@v7
         with:
           name: vigie-windows-installer

@@ -8,7 +8,7 @@ dans des onglets. Vigie lance chaque serveur **une seule fois**. Ensuite, chaque
 ou onglet lit le même état en direct : ce qui tourne, sur quel port, sous quel PID, et si le
 serveur répond vraiment.
 
-Vigie est écrit en Node.js, sans aucune dépendance au runtime, et tourne sous **Windows, macOS
+Le superviseur et la CLI sont écrits en Node.js, sans aucune dépendance, et tournent sous **Windows, macOS
 et Linux**.
 
 ## Ce que ça fait
@@ -27,12 +27,13 @@ et Linux**.
 | **Terminal en un clic** | Le bouton **Terminal** ouvre Windows Terminal ou PowerShell (Terminal sur macOS, l'émulateur par défaut sous Linux) dans le dossier du serveur. |
 | **Logo des projets** | Vigie détecte le logo du projet (`app/icon.png`, `public/favicon.svg`, `public/logo.png`…) et l'affiche à la place de l'initiale. |
 | **Français et anglais** | L'app et le menu de l'icône suivent la langue du système, ou celle choisie en bas de la barre latérale. |
+| **Mises à jour automatiques** | L'app installée vérifie les releases GitHub au démarrage puis toutes les 4 h, télécharge la nouvelle version en arrière-plan et propose de redémarrer. Les serveurs qui tournaient repartent après la mise à jour. |
 
 ## Démarrer
 
 ### Avec l'installateur (sans Node)
 
-1. Lance `Vigie Setup 0.1.1.exe`, puis ouvre Vigie. L'icône apparaît dans la zone de notification.
+1. Lance `Vigie-Setup-0.1.2.exe`, puis ouvre Vigie. L'icône apparaît dans la zone de notification.
 2. Clic droit sur l'icône → **Install command-line tool**. Vigie écrit un petit lanceur
    `vigie.cmd` (et `vigie` pour Git Bash) dans `%LOCALAPPDATA%\Vigie\bin` et ajoute ce dossier
    à ton PATH utilisateur. Rien n'est modifié avant ce clic.
@@ -74,7 +75,7 @@ vigie open           # démarre le daemon et ouvre l'interface dans le navigateu
 ### Créer l'installateur Windows
 
 ```bash
-npm run dist         # produit dist/Vigie Setup 0.1.1.exe
+npm run dist         # produit dist/Vigie-Setup-<version>.exe et dist/latest.yml
 ```
 
 ## La CLI (pour toi et pour tes agents)
@@ -186,7 +187,7 @@ votre-branche ──PR──▶ dev ──PR──▶ main ──tag vX.Y.Z─�
 2. Quand la CI est verte, mergez dans `dev`. Une fois la CI verte sur `dev`, la pull request
    `dev → main` s'ouvre (ou se met à jour) avec la liste des commits à livrer.
 3. Merger dans `main` redéploie https://vigie.lyrad.dev. Pour publier l'app, créez un tag
-   `vX.Y.Z` (identique à la version de `package.json`) : le workflow Release construit l'installateur
+   `vX.Y.Z` (identique à la version de `package.json`) : le workflow Release construit l'installateur, publie aussi `latest.yml` (lu par les apps installées pour se mettre à jour)
    et publie la release.
 
 `main` et `dev` n'acceptent que des pull requests dont la vérification **CI** est verte. Elle regroupe :

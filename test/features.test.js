@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { TRAY_STRINGS, trayText } from '../desktop/tray-strings.js';
 import { normalizeConfig, normalizeProject } from '../src/config.js';
 import { findProjectLogo, projectLogo } from '../src/logo.js';
 import { terminalCommand } from '../src/terminal.js';
@@ -85,6 +86,14 @@ test('every UI text exists in English and French', () => {
       assert.equal(vars(value), vars(STRINGS.en[key]), `${lang}.${key} uses the same placeholders as English`);
     }
   }
+});
+
+test('every tray text exists in English and French with the same placeholders', () => {
+  const vars = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join();
+  assert.deepEqual(Object.keys(TRAY_STRINGS.fr).sort(), Object.keys(TRAY_STRINGS.en).sort());
+  for (const [key, value] of Object.entries(TRAY_STRINGS.fr)) assert.equal(vars(value), vars(TRAY_STRINGS.en[key]), key);
+  assert.equal(trayText('auto', 'fr-FR')('restartToUpdate', { version: '0.1.2' }), 'Redémarrer pour passer à 0.1.2');
+  assert.equal(trayText('en', 'fr-FR')('upToDate', { version: '0.1.2' }), 'Vigie 0.1.2 is up to date.');
 });
 
 test('the manual has the same chapters in both languages, each with real content', () => {

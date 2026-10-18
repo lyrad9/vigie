@@ -777,6 +777,7 @@ function connect() {
   const es = new EventSource('/api/events');
   es.addEventListener('status', (e) => {
     state.status = JSON.parse(e.data);
+    $('#app-version').textContent = t('side.version', { version: state.status.version });
     $('#offline').hidden = true;
     if (state.offline) {
       state.offline = false;

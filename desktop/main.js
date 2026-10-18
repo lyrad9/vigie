@@ -1,12 +1,13 @@
 // Vigie desktop: a native window over the supervisor, plus a tray menu to control servers
 // without opening the window. The supervisor runs inside this process unless a daemon
 // started by the CLI is already answering, in which case the app attaches to it.
-import { app, BrowserWindow, dialog, Menu, Tray, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, dialog, Menu, Notification, Tray, nativeImage, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installSkill } from '../src/skill.js';
 import { installCli, isCliInstalled, refreshCli, uninstallCli } from './cli-tool.js';
 import { trayText } from './tray-strings.js';
+import { createUpdater } from './updater.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ICONS = path.join(HERE, 'icons');
@@ -22,6 +23,21 @@ let win = null;
 let tray = null;
 let quitting = false;
 let lastMenuKey = '';
+let t = trayText('auto', '');
+
+// Updates download in the background; installing waits for a restart or the next quit.
+const updates = createUpdater({
+  onChange: () => {
+    lastMenuKey = '';
+    refreshTray();
+  },
+  onReady: (version) => {
+    if (!Notification.isSupported()) return;
+    const note = new Notification({ title: t('updateReadyTitle', { version }), body: t('updateReadyBody'), icon: path.join(ICONS, 'icon.png') });
+    note.on('click', () => quit({ update: 'restart' }));
+    note.show();
+  },
+});
 
 if (!app.requestSingleInstanceLock()) app.quit();
 // The CLI launches the app with --hidden when no supervisor answers: make sure one runs, but don't pop the window.
@@ -164,8 +180,8 @@ async function refreshTray() {
   const servers = status ? status.projects.flatMap((p) => p.servers) : [];
   const running = servers.filter((s) => s.state === 'running').length;
   const cliInstalled = isCliInstalled();
-  const t = trayText(status?.language, app.getLocale());
-  const key = JSON.stringify([status && status.projects.map((p) => [p.name, p.servers.map((s) => [s.id, s.name, s.state, s.port])]), status?.language, app.getLoginItemSettings().openAtLogin, cliInstalled]);
+  t = trayText(status?.language, app.getLocale());
+  const key = JSON.stringify([status && status.projects.map((p) => [p.name, p.servers.map((s) => [s.id, s.name, s.state, s.port])]), status?.language, app.getLoginItemSettings().openAtLogin, cliInstalled, updates.state.status]);
   if (key === lastMenuKey) return;
   lastMenuKey = key;
 
@@ -193,6 +209,9 @@ async function refreshTray() {
     },
     cliInstalled ? { label: t('uninstallCli'), click: () => removeCliTool() } : { label: t('installCli'), click: () => addCliTool() },
     { label: t('installSkill'), click: () => addSkill() },
+    updates.state.status === 'ready'
+      ? { label: t('restartToUpdate', { version: updates.state.version }), click: () => quit({ update: 'restart' }) }
+      : { label: updates.state.status === 'downloading' ? t('updateDownloadingItem', { version: updates.state.version }) : t('checkUpdates'), enabled: updates.state.status !== 'downloading' && updates.state.status !== 'checking', click: () => checkForUpdates() },
     { type: 'separator' },
     { label: daemon ? t('quitAll') : t('quit'), click: () => quit() },
   );
@@ -240,15 +259,32 @@ async function addSkill() {
   }
 }
 
+// ----------------------------------------------------------------- updates
+
+async function checkForUpdates() {
+  if (!updates.enabled) return tell(t('updateUnavailable'), t('updateUnavailableDetail'));
+  const s = await updates.check();
+  if (s.status === 'current') return tell(t('upToDate', { version: app.getVersion() }));
+  if (s.status === 'downloading') return tell(t('updateDownloading', { version: s.version }), t('updateDownloadingDetail'));
+  if (s.status === 'ready') return tell(t('updateReadyTitle', { version: s.version }), t('updateReadyBody'));
+  if (s.status === 'error') return tell(t('updateError'), s.error || '', 'error');
+}
+
 // --------------------------------------------------------------- lifecycle
 
-async function quit() {
+/** Stop the servers, then quit, installing a downloaded update on the way out. */
+async function quit({ update } = {}) {
   if (quitting) return;
   quitting = true;
   tray?.destroy();
   tray = null;
   // Only stop servers if this app owns the supervisor; a CLI daemon keeps running.
   if (daemon) await daemon.shutdown().catch(() => {});
+  // The installer restarts Vigie when asked to; the servers that were running come back with it.
+  if (updates.install({ restart: update === 'restart' })) {
+    setTimeout(() => app.exit(0), 15000).unref?.();
+    return;
+  }
   app.exit(0);
 }
 
@@ -281,4 +317,6 @@ app.whenReady().then(async () => {
   tray.on('double-click', () => showWindow());
   await refreshTray();
   setInterval(refreshTray, 2000);
+  // Give the servers a head start before the first network check.
+  setTimeout(() => updates.check({ schedule: true }), 20000);
 });

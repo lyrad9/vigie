@@ -156,7 +156,7 @@ const en = [
   <tr><td>Open Vigie again</td><td>The servers that were running when you quit start again on their own.</td></tr>
 </table>
 <h3>The tray menu</h3>
-<p>Right-click the icon near the clock. The menu lists every server with its state, and for each one: Start or Stop, Restart, Open in browser, Open terminal, Show logs. Below: Open Vigie, Ports, Manual, Stop all, and the settings.</p>
+<p>Right-click the icon near the clock. The menu lists every server with its state, and for each one: Start or Stop, Restart, Open in browser, Open terminal, Show logs. Below: Open Vigie, Ports, Manual, Stop all, the settings and Check for updates.</p>
 <h3>Start with Windows</h3>
 <p>Tray icon → check <strong>Launch at login</strong>. Vigie then starts hidden in the notification area when you sign in, and restarts the servers that were running. Turn your computer on, and your project is already on <code>localhost:3000</code>.</p>`,
   },
@@ -210,7 +210,10 @@ const en = [
     title: 'Settings and files',
     html: `
 <h3>Theme and language</h3>
-<p>At the bottom of the sidebar: <strong>Theme</strong> (System, Light, Dark) and <strong>Language</strong> (Auto, English, Français). Auto follows your system's language; the choice also applies to the tray menu.</p>
+<p>At the bottom of the sidebar: <strong>Theme</strong> (System, Light, Dark) and <strong>Language</strong> (Auto, English, Français). Auto follows your system's language; the choice also applies to the tray menu. Your version of Vigie is shown just below.</p>
+<h3>Updates</h3>
+<p>Vigie updates itself. When it starts, then every few hours, it checks whether a new version was published and downloads it in the background, without interrupting anything. Once it is ready, a notification and the tray menu offer <strong>Restart to update</strong>: Vigie stops your servers, installs the new version, opens again and restarts the servers that were running. If you don't restart, the update installs the next time you quit Vigie.</p>
+<p>To check right away: tray icon → <strong>Check for updates…</strong>. Updates only apply to the app installed with the installer.</p>
 <h3>Where Vigie keeps its files</h3>
 <table>
   <tr><th>File</th><th>Content</th></tr>
@@ -399,7 +402,7 @@ const fr = [
   <tr><td>Rouvrir Vigie</td><td>Les serveurs qui tournaient quand vous avez quitté redémarrent tout seuls.</td></tr>
 </table>
 <h3>Le menu de l’icône</h3>
-<p>Faites un clic droit sur l’icône près de l’horloge. Le menu liste chaque serveur avec son état, et pour chacun : Démarrer ou Arrêter, Redémarrer, Ouvrir dans le navigateur, Ouvrir un terminal, Voir les logs. En dessous : Ouvrir Vigie, Ports, Manuel, Tout arrêter, et les réglages.</p>
+<p>Faites un clic droit sur l’icône près de l’horloge. Le menu liste chaque serveur avec son état, et pour chacun : Démarrer ou Arrêter, Redémarrer, Ouvrir dans le navigateur, Ouvrir un terminal, Voir les logs. En dessous : Ouvrir Vigie, Ports, Manuel, Tout arrêter, les réglages et Rechercher les mises à jour.</p>
 <h3>Démarrer avec Windows</h3>
 <p>Icône → cochez <strong>Lancer à l’ouverture de session</strong>. Vigie démarre alors caché dans la zone de notification quand vous vous connectez, et relance les serveurs qui tournaient. Allumez votre ordinateur : votre projet est déjà sur <code>localhost:3000</code>.</p>`,
   },
@@ -453,7 +456,10 @@ const fr = [
     title: 'Réglages et fichiers',
     html: `
 <h3>Thème et langue</h3>
-<p>En bas de la barre latérale : <strong>Thème</strong> (Système, Clair, Sombre) et <strong>Langue</strong> (Auto, English, Français). Auto suit la langue de votre système ; le choix s’applique aussi au menu de l’icône.</p>
+<p>En bas de la barre latérale : <strong>Thème</strong> (Système, Clair, Sombre) et <strong>Langue</strong> (Auto, English, Français). Auto suit la langue de votre système ; le choix s’applique aussi au menu de l’icône. Votre version de Vigie est indiquée juste en dessous.</p>
+<h3>Mises à jour</h3>
+<p>Vigie se met à jour tout seul. Au démarrage, puis toutes les quelques heures, il vérifie si une nouvelle version a été publiée et la télécharge en arrière-plan, sans rien interrompre. Une fois prête, une notification et le menu de l’icône proposent <strong>Redémarrer pour passer à…</strong> : Vigie arrête vos serveurs, installe la nouvelle version, se rouvre et relance les serveurs qui tournaient. Si vous ne redémarrez pas, la mise à jour s’installe la prochaine fois que vous quittez Vigie.</p>
+<p>Pour vérifier tout de suite : icône → <strong>Rechercher les mises à jour…</strong>. Les mises à jour ne concernent que l’app installée avec l’installateur.</p>
 <h3>Où Vigie range ses fichiers</h3>
 <table>
   <tr><th>Fichier</th><th>Contenu</th></tr>
