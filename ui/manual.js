@@ -32,7 +32,7 @@ const en = [
 <ol>
   <li>Click <strong>Add project</strong> at the bottom of the sidebar.</li>
   <li>In <strong>Folder</strong>, paste the path of your project, for example <code>D:\\Code\\my-app</code>. Vigie reads its <code>package.json</code> and fills in the rest: the name, the package manager, the framework, the command and the usual port.</li>
-  <li>Check the <strong>Command</strong> and the <strong>Port</strong>. For Next.js, Vigie proposes <code>pnpm dev -p 3000</code>; for Vite, <code>npm run dev -- --port 5173 --strictPort</code>. The port is written into the command on purpose: the server can never move to another port without telling you.</li>
+  <li>Check the <strong>Command</strong> and the <strong>Port</strong>. For Next.js, Vigie proposes <code>pnpm dev -p 3000</code>; for Vite, <code>npm run dev -- --port 5173 --strictPort</code>. The port is written into the command on purpose: the server can never move to another port without telling you. If another server already has the usual port, Vigie proposes the next free one and says which server has it.</li>
   <li>Click <strong>Add project</strong>.</li>
 </ol>
 <h3>3. Start it</h3>
@@ -281,7 +281,7 @@ const fr = [
 <ol>
   <li>Cliquez sur <strong>Ajouter un projet</strong>, en bas de la barre latérale.</li>
   <li>Dans <strong>Dossier</strong>, collez le chemin de votre projet, par exemple <code>D:\\Code\\mon-app</code>. Vigie lit son <code>package.json</code> et remplit le reste : le nom, le gestionnaire de paquets, le framework, la commande et le port habituel.</li>
-  <li>Vérifiez la <strong>Commande</strong> et le <strong>Port</strong>. Pour Next.js, Vigie propose <code>pnpm dev -p 3000</code> ; pour Vite, <code>npm run dev -- --port 5173 --strictPort</code>. Le port est écrit dans la commande exprès : le serveur ne peut jamais partir sur un autre port sans vous prévenir.</li>
+  <li>Vérifiez la <strong>Commande</strong> et le <strong>Port</strong>. Pour Next.js, Vigie propose <code>pnpm dev -p 3000</code> ; pour Vite, <code>npm run dev -- --port 5173 --strictPort</code>. Le port est écrit dans la commande exprès : le serveur ne peut jamais partir sur un autre port sans vous prévenir. Si un autre serveur a déjà le port habituel, Vigie propose le port libre suivant et dit quel serveur l’occupe.</li>
   <li>Cliquez sur <strong>Ajouter un projet</strong>.</li>
 </ol>
 <h3>3. Le démarrer</h3>

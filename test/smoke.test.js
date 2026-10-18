@@ -200,6 +200,38 @@ test('daemon supervises a server end to end', { timeout: 180000 }, async (t) => 
     for (const name of ['flaky', 'squatter']) await api('DELETE', `/servers/demo%2F${name}`);
   });
 
+  await t.test('a new folder is offered a port no other server has, and keeps it when registered again', async (t2) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vigie-next-'));
+    t2.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'shop', scripts: { dev: 'next dev' }, dependencies: { next: '16.0.0' } }));
+    // Next.js defaults to 3000: make sure another server has it, whatever runs on this machine.
+    const holder = await api('POST', '/projects/demo/servers', { name: 'next', command: 'next dev', port: 3000, sharePort: true });
+    assert.equal(holder.ok, true, JSON.stringify(holder.error));
+
+    const r = await api('GET', `/resolve?cwd=${encodeURIComponent(dir)}`);
+    const g = r.data.inspect.suggestion;
+    assert.equal(g.portMovedFrom, 3000);
+    assert.deepEqual(g.portTakenBy.servers, ['demo/next']);
+    assert.ok(g.port > 3000, `suggested ${g.port}`);
+    assert.equal(g.command, `npm run dev -- -p ${g.port}`);
+    const free = await api('GET', `/port/${g.port}`);
+    assert.deepEqual([free.data.owners, free.data.configured], [[], []]);
+    const asked = await api('GET', `/inspect?root=${encodeURIComponent(dir)}&port=3000`);
+    assert.deepEqual([asked.data.suggestion.port, asked.data.suggestion.portMovedFrom], [3000, undefined], 'an explicit port is kept');
+
+    const first = cli('register', '--root', dir, '--json');
+    assert.equal(first.status, 0, first.stderr + first.stdout);
+    const registered = JSON.parse(first.stdout);
+    assert.deepEqual([registered.server.port, registered.server.command, registered.portMovedFrom], [g.port, g.command, 3000]);
+    const second = cli('register', '--root', dir, '--json');
+    assert.equal(second.status, 0, second.stderr + second.stdout);
+    const again = JSON.parse(second.stdout);
+    assert.deepEqual([again.server.id, again.server.port, again.server.command], [registered.server.id, g.port, g.command]);
+
+    await api('DELETE', '/projects/shop');
+    await api('DELETE', '/servers/demo%2Fnext');
+  });
+
   await t.test('logs are captured', async () => {
     const logs = await until(
       async () => {

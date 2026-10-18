@@ -708,8 +708,12 @@ async function detectProject() {
     form.command.value = g.command;
     form.port.value = g.port ?? '';
   }
+  // The daemon already moved a default port that another server has, and says why.
+  const moved = !projectEdit && g?.portMovedFrom
+    ? ' ' + t('detect.portMoved', { from: g.portMovedFrom, port: g.port, by: g.portTakenBy.servers.join(', ') || t('detect.otherProgram') })
+    : '';
   $('#detect-hint').textContent = g
-    ? t('detect.found', { what: [g.framework, g.packageManager].filter(Boolean).join(' · ') || t('detect.devScript') })
+    ? t('detect.found', { what: [g.framework, g.packageManager].filter(Boolean).join(' · ') || t('detect.devScript') }) + moved
     : t('detect.none');
   renderIconChoice();
 }

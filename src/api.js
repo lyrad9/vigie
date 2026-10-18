@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { VigieError } from './errors.js';
-import { inspectDirectory } from './inspect.js';
 import { LOGO_TYPES } from './logo.js';
 import { lastLines } from './logs.js';
 import { UI_DIR, VERSION } from './paths.js';
@@ -41,7 +40,7 @@ export function createApi(sup, { port, onShutdown }) {
     ['GET', '/api/resolve', (_, q) => resolve(sup, q)],
     ['GET', '/api/ports', () => sup.portsReport()],
     ['GET', '/api/port/:port', (p) => sup.portInfo(Number(p.port))],
-    ['GET', '/api/inspect', (_, q) => inspectDirectory(q.get('root'), { port: Number(q.get('port')) || null })],
+    ['GET', '/api/inspect', (_, q) => sup.inspect(q.get('root'), { port: Number(q.get('port')) || null })],
     ['GET', '/api/servers/:ref', (p) => sup.view(sup.find(p.ref).server.id)],
     ['GET', '/api/servers/:ref/logs', (p, q) => {
       const text = sup.logs(p.ref, Number(q.get('chars')) || 200_000);
@@ -104,10 +103,10 @@ export function createApi(sup, { port, onShutdown }) {
   return server;
 }
 
-function resolve(sup, q) {
+async function resolve(sup, q) {
   const cwd = q.get('cwd') || process.cwd();
   const project = sup.resolveCwd(cwd);
-  if (!project) return { cwd, project: null, server: null, inspect: inspectDirectory(cwd) };
+  if (!project) return { cwd, project: null, server: null, inspect: await sup.inspect(cwd) };
   const name = q.get('server');
   const server = name ? project.servers.find((s) => s.name === name) : project.servers[0];
   return {

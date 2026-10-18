@@ -250,7 +250,9 @@ async function run(cmd, rest, values) {
       if (values.json) return printJson(r);
       if (!r.project) {
         console.log(`No registered project contains ${r.cwd}.`);
-        if (r.inspect?.suggestion) console.log(c.dim(`Suggested: vigie register --command "${r.inspect.suggestion.command}" --port ${r.inspect.suggestion.port}`));
+        const g = r.inspect?.suggestion;
+        if (g) console.log(c.dim(`Suggested: vigie register --command "${g.command}" --port ${g.port}`));
+        if (g?.portMovedFrom) console.log(c.dim(`  (port ${g.portMovedFrom} is taken by ${takenBy(g.portTakenBy)})`));
         return;
       }
       console.log(`${c.bold(r.project.name)}  ${c.dim(tildify(r.project.root))}`);
@@ -392,30 +394,39 @@ function stripAnsi(s) {
   return s.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, '');
 }
 
+/** Who holds a framework's default port: the servers configured on it, else a listening program. */
+const takenBy = (t) => (t.servers.length ? t.servers.join(', ') : 'a program outside Vigie');
+
 async function register(values) {
   const root = path.resolve(values.root || process.cwd());
   const wanted = values.port ? Number(values.port) : null;
-  // With --port, the guessed command pins that port (next dev -p 3001), not the framework default.
-  const info = await api('GET', `/inspect?root=${enc(root)}${wanted ? `&port=${wanted}` : ''}`);
+  // With a port, the guessed command pins it (next dev -p 3001). Without one, the daemon moves a
+  // framework default that another server already has to the next free port.
+  const inspect = (port) => api('GET', `/inspect?root=${enc(root)}${port ? `&port=${port}` : ''}`);
+  let info = await inspect(wanted);
   if (!info.exists) throw new Error(`directory not found: ${root}`);
+  const status = await api('GET', '/status');
+  const existing = status.projects.find((p) => path.resolve(p.root).toLowerCase() === root.toLowerCase());
+  const name = values.server || info.suggestion?.name || 'dev';
+  const same = existing?.servers.find((s) => s.name === name);
+  // Registering a server again keeps its port, unless --port says otherwise.
+  if (!wanted && same?.port && info.suggestion && info.suggestion.port !== same.port) info = await inspect(same.port);
   const guess = info.suggestion || {};
   const command = values.command || guess.command;
   if (!command) throw new Error('could not guess a command; pass --command "<cmd>"');
   const port = wanted ?? (values.command ? null : guess.port ?? null);
+  const moved = port && port === guess.port && guess.portMovedFrom ? guess : null;
   const sharePort = Boolean(values['share-port']);
   const server = {
-    name: values.server || guess.name || 'dev',
+    name,
     command,
     port,
     autostart: Boolean(values.autostart),
     health: { type: values.health || (port ? 'tcp' : 'none'), path: values['health-path'] || '/' },
   };
 
-  const status = await api('GET', '/status');
-  const existing = status.projects.find((p) => path.resolve(p.root).toLowerCase() === root.toLowerCase());
   let result;
   if (existing) {
-    const same = existing.servers.find((s) => s.name === server.name);
     const body = { ...server, sharePort };
     result = same ? await api('PATCH', `/servers/${enc(same.id)}`, body) : await api('POST', `/projects/${enc(existing.id)}/servers`, body);
     result = { project: existing.name, server: result };
@@ -423,7 +434,9 @@ async function register(values) {
     const project = await api('POST', '/projects', { name: values.name || info.name, root, servers: [server], sharePort });
     result = { project: project.name, server: project.servers[0] };
   }
+  if (moved) Object.assign(result, { portMovedFrom: moved.portMovedFrom, portTakenBy: moved.portTakenBy });
   if (values.json) return printJson(result);
   console.log(`Registered ${c.bold(`${result.project}/${result.server.name}`)}: ${result.server.command}${result.server.port ? ` on :${result.server.port}` : ''}`);
+  if (moved) console.log(c.dim(`Port ${moved.portMovedFrom} is taken by ${takenBy(moved.portTakenBy)}, so :${port} was picked.`));
   console.log(c.dim(`Start it with: vigie start ${result.project}/${result.server.name}`));
 }

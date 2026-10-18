@@ -5,6 +5,7 @@ import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { VigieError } from './errors.js';
 import { checkHealth } from './health.js';
+import { inspectDirectory } from './inspect.js';
 import { LogBuffer } from './logs.js';
 import { IS_WIN, LOG_DIR, STATE_FILE, VERSION } from './paths.js';
 import { descendantsOf, isProtected, killTree, listListeners, listProcesses } from './platform.js';
@@ -682,12 +683,32 @@ export class Supervisor extends EventEmitter {
   }
 
   /** The first port from `from` up that no server (but `except`) is configured on and nothing listens on. */
-  async freePort(from, { reserved = [], except = null } = {}) {
+  async freePort(from, { reserved = [], except = null, listeners = null } = {}) {
     const taken = new Set([this.apiPort, ...reserved]);
     for (const p of this.config.projects) for (const s of p.servers) if (s.port && s.id !== except) taken.add(s.port);
-    for (const l of await listListeners()) taken.add(l.port);
+    for (const l of listeners ?? (await listListeners())) taken.add(l.port);
     for (let port = from; port <= 65535; port++) if (!taken.has(port)) return port;
     return null;
+  }
+
+  /**
+   * The server `vigie register` would guess for a folder. Without an explicit `port`, a framework
+   * default that another server is configured on, or that something listens on, moves to the next
+   * free port (command included); `portMovedFrom` and `portTakenBy` say why.
+   */
+  async inspect(root, { port = null } = {}) {
+    const info = inspectDirectory(root, { port });
+    const wanted = info.suggestion?.port;
+    if (port || !wanted) return info;
+    const listeners = await listListeners();
+    const servers = this.configuredOn(wanted).map((s) => s.serverName);
+    const listening = listeners.some((l) => l.port === wanted);
+    if (!servers.length && !listening) return info;
+    const free = await this.freePort(wanted, { listeners });
+    if (!free) return info;
+    const moved = inspectDirectory(root, { port: free });
+    Object.assign(moved.suggestion, { portMovedFrom: wanted, portTakenBy: { servers, listening } });
+    return moved;
   }
 
   classify(listeners, procs) {
