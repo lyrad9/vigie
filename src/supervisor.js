@@ -8,7 +8,8 @@ import { checkHealth } from './health.js';
 import { inspectDirectory } from './inspect.js';
 import { LogBuffer } from './logs.js';
 import { IS_WIN, LOG_DIR, STATE_FILE, VERSION } from './paths.js';
-import { descendantsOf, isProtected, killTree, listListeners, listProcesses } from './platform.js';
+import { descendantsOf, isProtected, killTree, listListeners, listProcesses, processCwd } from './platform.js';
+import { ancestry, findLeftover } from './leftover.js';
 import { PROJECT_COLORS, normalizeConfig, normalizeProject, normalizeServer, saveConfig } from './config.js';
 import { projectLogo } from './logo.js';
 
@@ -220,14 +221,15 @@ export class Supervisor extends EventEmitter {
 
   // -------------------------------------------------------------- control
 
-  async start(ref, { takeover = false } = {}) {
+  /** `restore`: started at boot, so a leftover of this same server from a previous Vigie may be replaced. */
+  async start(ref, { takeover = false, restore = false } = {}) {
     const { project, server } = this.find(ref);
     const r = this.rt.get(server.id);
     if (r.child && ACTIVE.has(r.state)) return this.view(server.id);
     if (r.state === 'stopping') await this.waitExit(r, 10000);
     clearTimeout(r.timers.restart);
     if (server.port) {
-      await this.ensurePortFree(server, takeover);
+      await this.ensurePortFree(server, takeover, restore ? project : null);
       // Again with no await before the spawn: servers started together (at boot) all found the port free.
       const rival = this.reservations([], server.port).find((o) => o.serverId !== server.id);
       if (rival) throw portTaken(server.port, rival, [rival]);
@@ -307,25 +309,49 @@ export class Supervisor extends EventEmitter {
   /**
    * Throws PORT_IN_USE unless the port is free; with takeover, stops the external owner first.
    * Another active Vigie server configured on the port holds it even while it is not listening.
+   * With `restoring` (the server's project, at boot), a port held by what a previous Vigie left of
+   * this same server is freed too; any other owner still gets PORT_IN_USE.
    */
-  async ensurePortFree(server, takeover) {
+  async ensurePortFree(server, takeover, restoring = null) {
     const owners = (await this.portOwners(server.port)).filter((o) => o.serverId !== server.id);
     if (!owners.length) return;
     const managed = owners.find((o) => o.kind === 'managed');
     if (managed) throw portTaken(server.port, managed, owners);
+    const leftover = restoring && !takeover ? await this.leftoverOf(restoring, server, owners) : null;
+    if (leftover) {
+      const message = `${restoring.name}/${server.name}: port ${server.port} is held by what a previous Vigie left of this server (pid ${leftover.root}, ${leftover.reason}); stopping it and starting the server again`;
+      this.emit('notice', message);
+      this.log(this.rt.get(server.id), dim(`[vigie] ${message}`) + '\r\n');
+      // taskkill /T stops the whole tree from its root; elsewhere each process gets its own signal.
+      return this.releasePort(server.port, IS_WIN ? [leftover.root] : leftover.pids);
+    }
     if (!takeover) {
       const o = owners[0];
       throw new VigieError('PORT_IN_USE', `Port ${server.port} is used by ${o.name || 'an unknown process'} (pid ${o.pid}), started outside Vigie`, { port: server.port, owners }, 409);
     }
     const blocked = owners.find((o) => o.kind === 'system');
     if (blocked) throw new VigieError('PROTECTED', `Port ${server.port} belongs to protected process ${blocked.name} (pid ${blocked.pid})`, { port: server.port, owners }, 403);
-    for (const o of owners) await killTree(o.pid, { force: false });
+    return this.releasePort(server.port, owners.map((o) => o.pid));
+  }
+
+  /** Stop `pids`, forcing them if they linger, until nothing listens on `port`. */
+  async releasePort(port, pids) {
+    for (const pid of pids) await killTree(pid, { force: false });
     for (let i = 0; i < 25; i++) {
-      if (!(await listListeners()).some((l) => l.port === server.port)) return;
-      if (i === 10) for (const o of owners) await killTree(o.pid, { force: true });
+      if (!(await listListeners()).some((l) => l.port === port)) return;
+      if (i === 10) for (const pid of pids) await killTree(pid, { force: true });
       await new Promise((res) => setTimeout(res, 200));
     }
-    throw new VigieError('PORT_IN_USE', `Port ${server.port} is still in use after stopping its owner`, { port: server.port }, 409);
+    throw new VigieError('PORT_IN_USE', `Port ${port} is still in use after stopping its owner`, { port }, 409);
+  }
+
+  /** The leftover tree of `server` holding its port (see findLeftover), or null. */
+  async leftoverOf(project, server, owners) {
+    const procs = new Map(await listProcesses()); // the snapshot portOwners just read
+    if (!IS_WIN) {
+      for (const o of owners) for (const x of ancestry(o.pid, procs)) procs.set(x.pid, { ...x, cwd: await processCwd(x.pid) });
+    }
+    return findLeftover({ command: server.command, root: project.root, owners, procs });
   }
 
   spawnServer(project, server, r) {
@@ -508,7 +534,7 @@ export class Supervisor extends EventEmitter {
     }
     const ids = new Set(previous);
     for (const p of this.config.projects) for (const s of p.servers) if (s.autostart) ids.add(s.id);
-    const results = await Promise.allSettled([...ids].filter((id) => this.lookup(id)).map((id) => this.start(id)));
+    const results = await Promise.allSettled([...ids].filter((id) => this.lookup(id)).map((id) => this.start(id, { restore: true })));
     return results.filter((x) => x.status === 'rejected').map((x) => x.reason.message);
   }
 
