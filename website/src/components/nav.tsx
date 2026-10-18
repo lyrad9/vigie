@@ -1,15 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { site } from "@/lib/site";
 import { ThemeToggle } from "./client";
 import { Icon, Logo } from "./ui";
 
+// Absolute anchors so the nav also works from /about, /contact, /privacy and the 404.
 const LINKS = [
-  ["#pourquoi", "Pourquoi Vigie"],
-  ["#controle", "Fonctionnalités"],
-  ["#agents", "Pour les agents"],
-  ["#faq", "Questions"],
+  ["/#pourquoi", "Pourquoi Vigie"],
+  ["/#controle", "Fonctionnalités"],
+  ["/#agents", "Pour les agents"],
+  ["/#faq", "Questions"],
 ];
 
 /** Floating bar, 16px from the top, sticky. On mobile the links fold into a sheet. */
@@ -29,10 +31,10 @@ export function Nav() {
         aria-label="Navigation principale"
         className="mx-auto flex h-[68px] max-w-[75rem] items-center gap-2 rounded-[20px] border border-hairline bg-card/90 pr-2 pl-4 shadow-card backdrop-blur-xl sm:pl-5"
       >
-        <a href="#" className="flex items-center gap-2.5 font-display text-brand font-black tracking-[-0.03em] text-ink" aria-label="Vigie, accueil">
+        <Link href="/" className="flex items-center gap-2.5 font-display text-brand font-black tracking-[-0.03em] text-ink" aria-label="Vigie, accueil">
           <Logo size={34} id="nav" />
           Vigie
-        </a>
+        </Link>
 
         <ul className="mx-auto hidden items-center gap-1 lg:flex">
           {LINKS.map(([href, label]) => (
