@@ -32,7 +32,7 @@ et Linux**.
 
 ### Avec l'installateur (sans Node)
 
-1. Lance `Vigie Setup 0.1.0.exe`, puis ouvre Vigie. L'icône apparaît dans la zone de notification.
+1. Lance `Vigie Setup 0.1.1.exe`, puis ouvre Vigie. L'icône apparaît dans la zone de notification.
 2. Clic droit sur l'icône → **Install command-line tool**. Vigie écrit un petit lanceur
    `vigie.cmd` (et `vigie` pour Git Bash) dans `%LOCALAPPDATA%\Vigie\bin` et ajoute ce dossier
    à ton PATH utilisateur. Rien n'est modifié avant ce clic.
@@ -74,7 +74,7 @@ vigie open           # démarre le daemon et ouvre l'interface dans le navigateu
 ### Créer l'installateur Windows
 
 ```bash
-npm run dist         # produit dist/Vigie Setup 0.1.0.exe
+npm run dist         # produit dist/Vigie Setup 0.1.1.exe
 ```
 
 ## La CLI (pour toi et pour tes agents)
