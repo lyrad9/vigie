@@ -3,12 +3,13 @@
 // `vigie status --json` without Node or `npm link`.
 //   Windows: %LOCALAPPDATA%\Vigie\bin\vigie.cmd (+ a `vigie` sh script for Git Bash), folder
 //            added to the user PATH (HKCU\Environment).
-//   macOS/Linux: ~/.config/vigie/bin/vigie, symlinked from ~/.local/bin/vigie.
+//   macOS/Linux: ~/.config/vigie/bin/vigie, symlinked from ~/.local/bin/vigie. From an AppImage, the
+//                shim runs the AppImage file, with the vigie-appimage.mjs loader written next to it.
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { HOME } from '../src/paths.js';
+import { HOME, appImageFile } from '../src/paths.js';
 
 const IS_WIN = process.platform === 'win32';
 export const CLI_DIR = IS_WIN ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Vigie', 'bin') : path.join(HOME, 'bin');
@@ -17,13 +18,33 @@ const LINK = path.join(os.homedir(), '.local', 'bin', 'vigie');
 const MAIN_SHIM = path.join(CLI_DIR, IS_WIN ? 'vigie.cmd' : 'vigie');
 const NOTICE = 'Vigie command-line tool: runs the CLI bundled in the desktop app. Written by Vigie (tray menu); do not edit.';
 
-/** Shim files to write, as { file: content }. `script` is the bundled bin/vigie.js (inside app.asar when packaged). */
-export function shims(script, exe = process.execPath) {
+// An AppImage mounts the app at a new path on every run, so no path inside it can go in the shim. The shim runs the
+// AppImage file in node mode on this loader, which sits outside the mount and finds the CLI in whatever this run
+// mounted. The AppImage's AppRun puts --no-sandbox in front of the arguments where user namespaces are restricted
+// (Ubuntu 24.04), and Electron's node mode rejects it there ("bad option"): AppRun adds none when the arguments
+// already hold one, so the shim passes one after the loader, which drops it.
+export const APPIMAGE_LOADER = path.join(CLI_DIR, 'vigie-appimage.mjs');
+const LOADER_SOURCE = `// ${NOTICE}
+// The AppImage mounts the app at a new path on every run: load the CLI from the one this run mounted.
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+// The shim passes --no-sandbox after this script so that the AppImage's AppRun adds none in front of it.
+if (process.argv[2] === '--no-sandbox') process.argv.splice(2, 1);
+await import(pathToFileURL(path.join(process.resourcesPath, 'app.asar', 'bin', 'vigie.js')).href);
+`;
+
+/**
+ * Shim files to write, as { file: content }. `script` is the bundled bin/vigie.js (inside app.asar when packaged).
+ * From an AppImage (`appImage` is its file), `exe` and `script` sit in this run's mount: the shim runs the AppImage.
+ */
+export function shims(script, exe = process.execPath, appImage = appImageFile()) {
   const sq = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
   const fwd = (p) => p.replace(/\\/g, '/');
   // POSIX sh shim: macOS/Linux, and Git Bash on Windows (it does not run .cmd files without the extension).
-  const sh = (e, s) =>
-    `#!/bin/sh\n# ${NOTICE}\n[ -e ${sq(e)} ] || { echo "vigie: the Vigie app was moved or uninstalled; reinstall the command-line tool from its tray menu." >&2; exit 1; }\nELECTRON_RUN_AS_NODE=1 exec ${sq(e)} ${sq(s)} "$@"\n`;
+  const sh = (e, s, args = '') =>
+    `#!/bin/sh\n# ${NOTICE}\n[ -e ${sq(e)} ] || { echo "vigie: the Vigie app was moved or uninstalled; reinstall the command-line tool from its tray menu." >&2; exit 1; }\nELECTRON_RUN_AS_NODE=1 exec ${sq(e)} ${sq(s)}${args} "$@"\n`;
+  if (appImage) return { [path.join(CLI_DIR, 'vigie')]: sh(appImage, APPIMAGE_LOADER, ' --no-sandbox'), [APPIMAGE_LOADER]: LOADER_SOURCE };
   if (!IS_WIN) return { [path.join(CLI_DIR, 'vigie')]: sh(exe, script) };
   const bat = (p) => p.replace(/%/g, '%%');
   const cmd = [
@@ -86,7 +107,7 @@ export function isInstalledCopy({
   isPackaged,
   exe = process.execPath,
   platform = process.platform,
-  appImage = process.env.APPIMAGE,
+  appImage = appImageFile({ exe, platform }),
   home = os.homedir(),
   tmpDir = realPath(os.tmpdir()),
   exists = fs.existsSync,
@@ -120,8 +141,9 @@ export function refreshCli(script, { isPackaged }) {
   } catch {
     /* unreadable: leave it alone */
   }
-  const exe = process.execPath;
-  const installed = isInstalledCopy({ isPackaged, exe: realPath(exe) });
+  // What a shim written now runs: on Linux, the AppImage file rather than the binary in its mount.
+  const exe = appImageFile() || process.execPath;
+  const installed = isInstalledCopy({ isPackaged, exe: realPath(process.execPath) });
   const refresh = shouldRefreshShim({ installed, exe, target, targetExists: Boolean(target) && fs.existsSync(target) });
   if (refresh) writeShims(script);
   return refresh;
@@ -170,7 +192,8 @@ export async function installCli(script) {
 export async function uninstallCli() {
   if (IS_WIN) await editUserPath('remove');
   else if (isOurLink()) fs.rmSync(LINK);
-  for (const file of Object.keys(shims(''))) fs.rmSync(file, { force: true });
+  // The AppImage loader too, whichever copy of the app wrote it.
+  for (const file of new Set([...Object.keys(shims('')), APPIMAGE_LOADER])) fs.rmSync(file, { force: true });
 }
 
 /**
