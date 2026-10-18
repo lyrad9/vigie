@@ -188,7 +188,7 @@ votre-branche ──PR──▶ dev ──PR──▶ main ──tag vX.Y.Z─�
 |---|---|
 | Core | Syntaxe de tous les fichiers, tests unitaires et test de bout en bout du daemon, sur Linux (Node 20, 22, 24) et Windows |
 | Website | Lint, types et build de production du site |
-| Windows installer | Construction de l'installateur sur `dev`, `main` et les PR vers `main` (téléchargeable en artefact) |
+| Windows installer | Construction de l'installateur à chaque push sur `dev` et `main` (téléchargeable en artefact) |
 
 En local : `npm run check && npm test`, et dans `website/` : `npm run lint && npm run typecheck && npm run build`.
 

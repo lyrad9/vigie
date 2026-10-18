@@ -1,18 +1,16 @@
 name: CI
 
-# Runs on every push (so pull requests opened by the automation already carry checks on their
-# head commit) and on pull requests coming from forks. The final "CI" job is the single
-# required status check for main and dev.
+# Runs on every push: a pull request's head commit already carries its checks, so there is no
+# separate pull_request run (those would be held for approval when the bot opens the PR).
+# The final "CI" job is the single required status check for main and dev.
 on:
   push:
     branches: ["**"]
     tags-ignore: ["**"]
-  pull_request:
-    branches: [main, dev]
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -26,7 +24,6 @@ env:
 jobs:
   core:
     name: Core · ${{ matrix.os }} · Node ${{ matrix.node }}
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -51,7 +48,6 @@ jobs:
 
   website:
     name: Website · lint, types, build
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -76,11 +72,8 @@ jobs:
 
   installer:
     name: Windows installer
-    # Packaging is slow: build it where it matters (dev, main, and pull requests into main).
-    if: >-
-      (github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'))
-      || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.head.repo.full_name != github.repository)
-      || github.event_name == 'workflow_dispatch'
+    # Packaging is slow: build it where it matters (dev and main), or on demand.
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     needs: core
     runs-on: windows-latest
     timeout-minutes: 30
@@ -104,7 +97,7 @@ jobs:
 
   ci:
     name: CI
-    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+    if: always()
     needs: [core, website, installer]
     runs-on: ubuntu-latest
     steps:
