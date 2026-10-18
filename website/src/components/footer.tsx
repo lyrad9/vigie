@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { site } from "@/lib/site";
 import { ThemeToggle } from "./client";
 import { Icon, Logo } from "./ui";
@@ -6,10 +7,10 @@ const COLUMNS: { title: string; links: [string, string, boolean?][] }[] = [
   {
     title: "Produit",
     links: [
-      ["Pourquoi Vigie", "#pourquoi"],
-      ["Fonctionnalités", "#controle"],
-      ["Pour les agents", "#agents"],
-      ["Questions", "#faq"],
+      ["Pourquoi Vigie", "/#pourquoi"],
+      ["Fonctionnalités", "/#controle"],
+      ["Pour les agents", "/#agents"],
+      ["Questions", "/#faq"],
     ],
   },
   {
@@ -24,6 +25,8 @@ const COLUMNS: { title: string; links: [string, string, boolean?][] }[] = [
   {
     title: "Projet",
     links: [
+      ["À propos", "/about"],
+      ["Contact", "/contact"],
       ["Signaler un problème", `${site.repo}/issues`, true],
       ["Contribuer", `${site.repo}/pulls`, true],
       ["Licence MIT", `${site.repo}/blob/main/LICENSE`, true],
@@ -39,10 +42,10 @@ export function Footer() {
         <div className="mx-auto max-w-[75rem] px-6 pt-14 sm:px-10 sm:pt-16">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.45fr)] lg:gap-16">
             <div>
-              <a href="#" className="inline-flex items-center gap-3 font-display text-brand font-black tracking-[-0.03em] text-ink" aria-label="Vigie, haut de page">
+              <Link href="/" className="inline-flex items-center gap-3 font-display text-brand font-black tracking-[-0.03em] text-ink" aria-label="Vigie, accueil">
                 <Logo size={40} id="footer" />
                 Vigie
-              </a>
+              </Link>
               <p className="mt-5 max-w-[32ch] text-lg leading-relaxed text-ink-soft">
                 Un seul superviseur pour tous vos serveurs locaux, lu par tous vos agents.
               </p>
@@ -83,6 +86,10 @@ export function Footer() {
               >
                 {site.author.name}
                 <span className="text-ink-faint">{Icon.external}</span>
+              </a>
+              {" · "}
+              <a href="/privacy" className="transition-colors hover:text-ink">
+                Confidentialité
               </a>
             </p>
             <div className="flex items-center gap-1">
