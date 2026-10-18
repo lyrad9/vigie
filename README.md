@@ -169,6 +169,29 @@ tourne déjà, elle s'y connecte au lieu d'en démarrer un second, et reprend la
 s'arrête. Lancée via le lanceur de l'app, la CLI démarre l'app (`Vigie.exe --hidden`) plutôt
 qu'un daemon séparé.
 
+## Contribuer : branches et CI
+
+```
+votre-branche ──PR──▶ dev ──PR──▶ main ──tag vX.Y.Z──▶ release GitHub
+```
+
+1. Créez une branche depuis `dev` et poussez-la : une pull request vers `dev` s'ouvre toute seule.
+2. Quand la CI est verte, mergez dans `dev`. Une fois la CI verte sur `dev`, la pull request
+   `dev → main` s'ouvre (ou se met à jour) avec la liste des commits à livrer.
+3. Merger dans `main` redéploie https://vigie.lyrad.dev. Pour publier l'app, créez un tag
+   `vX.Y.Z` (identique à la version de `package.json`) : le workflow Release construit l'installateur
+   et publie la release.
+
+`main` et `dev` n'acceptent que des pull requests dont la vérification **CI** est verte. Elle regroupe :
+
+| Job | Ce qu'il vérifie |
+|---|---|
+| Core | Syntaxe de tous les fichiers, tests unitaires et test de bout en bout du daemon, sur Linux (Node 20, 22, 24) et Windows |
+| Website | Lint, types et build de production du site |
+| Windows installer | Construction de l'installateur à chaque push sur `dev` et `main` (téléchargeable en artefact) |
+
+En local : `npm run check && npm test`, et dans `website/` : `npm run lint && npm run typecheck && npm run build`.
+
 ## Limites connues
 
 - Pas de vrai pseudo-terminal (PTY) : certains outils désactivent leurs couleurs hors TTY
