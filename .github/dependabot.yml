@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Dependency bumps follow the same flow as everyone else: into dev first.
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      electron:
+        patterns: ["electron", "electron-builder"]
+
+  - package-ecosystem: npm
+    directory: /website
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      next:
+        patterns: ["next", "react", "react-dom", "eslint-config-next", "@types/react", "@types/react-dom"]
+      tailwind:
+        patterns: ["tailwindcss", "@tailwindcss/*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: monthly
