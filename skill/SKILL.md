@@ -47,6 +47,8 @@ Read logs instead of starting a second copy "to see the output".
 - Servers get `PORT` in their environment. For Vite-like tools, keep `--port <n> --strictPort`
   in the command so they never fall back to another port silently.
 - Never kill processes Vigie reports as `system`. Never use `--takeover` without the user's OK.
+- A `managed` port with `internal: true` is an extra listener of that server (Next.js workers
+  on loopback ports, for instance), not a second copy; `primaryPort` is the server's own port.
 - The HTTP API is at `http://127.0.0.1:7744/api` (`GET /status`, `POST /servers/<ref>/start`…).
 - `vigie: command not found`? Ask the user to choose **Install command-line tool** in the Vigie
   tray menu, then open a new terminal. Meanwhile, read `GET http://127.0.0.1:7744/api/status`.

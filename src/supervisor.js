@@ -565,16 +565,17 @@ export class Supervisor extends EventEmitter {
 
   /** Every listener on `port`, classified as managed / external / system. */
   async portOwners(port) {
-    const listeners = (await listListeners()).filter((l) => l.port === port);
-    if (!listeners.length) return [];
-    return this.classify(listeners, await listProcesses({ fresh: true }));
+    const listeners = await listListeners();
+    if (!listeners.some((l) => l.port === port)) return [];
+    // Classify every listener so a server's extra ports are known to be internal, then keep this one.
+    return this.classify(listeners, await listProcesses({ fresh: true })).filter((o) => o.port === port);
   }
 
   classify(listeners, procs) {
     const roots = new Map();
     for (const r of this.rt.values()) if (r.pid) roots.set(r.pid, r.id);
     const owner = descendantsOf([...roots.keys()], procs);
-    return listeners.map((l) => {
+    const ports = listeners.map((l) => {
       const proc = procs.get(l.pid);
       let serverId = owner.has(l.pid) ? roots.get(owner.get(l.pid)) : null;
       if (!serverId) {
@@ -597,16 +598,18 @@ export class Supervisor extends EventEmitter {
         projectId: found?.project.id ?? null,
       };
     });
+    return markInternal(ports, (id) => this.lookup(id)?.server.port ?? null);
   }
 
   async portsReport() {
     const [listeners, procs] = await Promise.all([listListeners(), listProcesses()]);
     const ports = this.classify(listeners, procs).filter((p) => p.port !== this.apiPort || p.pid !== process.pid);
-    const count = (k) => ports.filter((p) => p.kind === k).length;
+    const count = (k) => ports.filter((p) => p.kind === k && !p.internal).length;
     return {
       summary: {
         listening: ports.length,
         managed: count('managed'),
+        internal: ports.filter((p) => p.internal).length,
         external: count('external'),
         system: count('system'),
         registeredProjects: this.config.projects.length,
@@ -626,6 +629,29 @@ export class Supervisor extends EventEmitter {
     await killTree(pid);
     return { killed: pid, name: proc.name };
   }
+}
+
+/**
+ * A managed server often listens on more than its own port (Next.js workers, HMR sockets…).
+ * Its listener on the configured port is the primary one; the others are flagged `internal`
+ * so they read as part of that server, not as another server. Without a listener on the
+ * configured port, the lowest port stands in as primary. Sets `internal` and `primaryPort`.
+ */
+export function markInternal(ports, configuredPort) {
+  const byServer = new Map();
+  for (const p of ports) {
+    p.internal = false;
+    p.primaryPort = null;
+    if (p.kind !== 'managed') continue;
+    if (!byServer.has(p.serverId)) byServer.set(p.serverId, []);
+    byServer.get(p.serverId).push(p);
+  }
+  for (const [id, list] of byServer) {
+    const own = configuredPort(id);
+    const primary = list.some((p) => p.port === own) ? own : Math.min(...list.map((p) => p.port));
+    for (const p of list) Object.assign(p, { internal: p.port !== primary, primaryPort: primary });
+  }
+  return ports;
 }
 
 function pick(obj, keys) {
