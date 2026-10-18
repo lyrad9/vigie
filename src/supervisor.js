@@ -8,7 +8,8 @@ import { checkHealth } from './health.js';
 import { LogBuffer } from './logs.js';
 import { IS_WIN, LOG_DIR, STATE_FILE, VERSION } from './paths.js';
 import { descendantsOf, isProtected, killTree, listListeners, listProcesses } from './platform.js';
-import { PROJECT_COLORS, normalizeProject, normalizeServer, saveConfig } from './config.js';
+import { PROJECT_COLORS, normalizeConfig, normalizeProject, normalizeServer, saveConfig } from './config.js';
+import { projectLogo } from './logo.js';
 
 const ACTIVE = new Set(['starting', 'running', 'unhealthy', 'restarting']);
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -121,14 +122,44 @@ export class Supervisor extends EventEmitter {
       version: VERSION,
       apiPort: this.apiPort,
       platform: process.platform,
-      projects: this.config.projects.map((p) => ({
-        id: p.id,
-        name: p.name,
-        root: p.root,
-        color: p.color,
-        servers: p.servers.map((s) => this.view(s.id)),
-      })),
+      language: this.config.language,
+      projects: this.config.projects.map((p) => {
+        const logo = projectLogo(p.root);
+        return {
+          id: p.id,
+          name: p.name,
+          root: p.root,
+          color: p.color,
+          icon: p.icon,
+          logo: logo ? { path: logo.rel, version: logo.version } : null,
+          servers: p.servers.map((s) => this.view(s.id)),
+        };
+      }),
     };
+  }
+
+  /** The logo file shown for a project, or a NOT_FOUND error. */
+  logoFile(ref) {
+    const project = this.project(ref);
+    const logo = projectLogo(project.root, { ttl: 0 });
+    if (!logo) throw new VigieError('NOT_FOUND', `No logo found in ${project.root}`, undefined, 404);
+    return logo.file;
+  }
+
+  /** The folder a terminal opens in: the server's working directory, else the project root. */
+  terminalDir(projectRef, serverRef) {
+    if (serverRef) {
+      const { project, server } = this.find(serverRef);
+      return server.cwd ? path.resolve(project.root, server.cwd) : project.root;
+    }
+    return this.project(projectRef).root;
+  }
+
+  updateSettings(patch) {
+    const next = normalizeConfig({ ...this.config, ...pick(patch, ['language']) });
+    this.config.language = next.language;
+    this.commit();
+    return { language: this.config.language };
   }
 
   // -------------------------------------------------------------- runtime
@@ -513,9 +544,9 @@ export class Supervisor extends EventEmitter {
 
   updateProject(ref, patch) {
     const project = this.project(ref);
-    const next = normalizeProject({ ...project, ...pick(patch, ['name', 'root', 'color']), servers: project.servers });
+    const next = normalizeProject({ ...project, ...pick(patch, ['name', 'root', 'color', 'icon']), servers: project.servers });
     if (!fs.existsSync(next.root)) throw new VigieError('ROOT_NOT_FOUND', `Directory not found: ${next.root}`);
-    Object.assign(project, { name: next.name, root: next.root, color: next.color });
+    Object.assign(project, { name: next.name, root: next.root, color: next.color, icon: next.icon });
     this.commit();
     return this.status().projects.find((p) => p.id === project.id);
   }
