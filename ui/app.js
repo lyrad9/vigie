@@ -1,4 +1,5 @@
 import { AnsiTerminal } from './ansi.js';
+import { SECTIONS, compareVersions, releasedUpTo } from './changelog.js';
 import { MANUAL } from './manual.js';
 import { resolveLanguage, translator } from './strings.js';
 
@@ -14,6 +15,8 @@ const state = {
   logsFor: null,
   conflict: null, // { serverId, port, owners }
   offline: false,
+  updates: null, // the desktop updater's state (desktop/preload.cjs)
+  remoteNotes: null, // { version, entries, loading }: notes of a newer release
 };
 
 const term = new AnsiTerminal($('#term'));
@@ -154,6 +157,7 @@ document.addEventListener(
 function parseRoute() {
   const hash = location.hash.replace(/^#\/?/, '');
   if (hash === 'ports') return { view: 'ports', id: null };
+  if (hash === 'updates') return { view: 'updates', id: null };
   if (hash === 'manual' || hash.startsWith('manual/')) return { view: 'manual', id: hash.slice(7) || null };
   if (hash.startsWith('s/')) return { view: 'server', id: decodeURIComponent(hash.slice(2)) };
   return { view: 'default', id: null };
@@ -193,16 +197,21 @@ async function loadLogs(id) {
 function render() {
   if (!state.status) return;
   renderSidebar();
-  for (const v of ['server', 'ports', 'manual', 'empty']) $(`#view-${v}`).hidden = state.route.view !== v;
+  for (const v of ['server', 'ports', 'updates', 'manual', 'empty']) $(`#view-${v}`).hidden = state.route.view !== v;
   $('#btn-ports').classList.toggle('active', state.route.view === 'ports');
   $('#btn-manual').classList.toggle('active', state.route.view === 'manual');
+  $('#btn-updates').classList.toggle('active', state.route.view === 'updates');
   $('#btn-ports').toggleAttribute('aria-current', state.route.view === 'ports');
   $('#btn-manual').toggleAttribute('aria-current', state.route.view === 'manual');
+  $('#btn-updates').toggleAttribute('aria-current', state.route.view === 'updates');
   if (state.route.view === 'ports') document.title = t('doc.ports');
   else if (state.route.view === 'manual') document.title = t('doc.manual');
+  else if (state.route.view === 'updates') document.title = t('doc.updates');
   else if (state.route.view !== 'server') document.title = 'Vigie';
   if (state.route.view === 'server') renderServer();
   if (state.route.view === 'ports') renderPorts();
+  if (state.route.view === 'updates') renderUpdates();
+  renderUpdatesDot();
 }
 
 function renderSidebar() {
@@ -419,6 +428,139 @@ async function killProcess(pid, name, port) {
     toast(err.message, 'error');
     return false;
   }
+}
+
+// ------------------------------------------------------------------ updates
+
+// The desktop app's updater, through desktop/preload.cjs. A browser has none: the page then only lists versions.
+const updater = window.vigieDesktop?.updates ?? null;
+const RELEASES_URL = 'https://github.com/lyrad9/vigie/releases';
+
+function setUpdates(next) {
+  state.updates = next;
+  // Notes for a version this copy does not know come from that release.
+  const v = next?.version;
+  if (v && compareVersions(v, next.current) > 0 && state.remoteNotes?.version !== v) {
+    state.remoteNotes = { version: v, entries: null, loading: true };
+    updater.notes(v).then((entries) => {
+      if (state.remoteNotes?.version !== v) return;
+      state.remoteNotes = { version: v, entries, loading: false };
+      if (state.route.view === 'updates') renderUpdates();
+    });
+  }
+  renderUpdatesDot();
+  if (state.route.view === 'updates') renderUpdates();
+}
+
+function renderUpdatesDot() {
+  const ready = state.updates?.status === 'ready';
+  $('#updates-dot').hidden = !ready;
+  $('#btn-updates').title = ready ? t('updates.ready', { version: state.updates.version }) : '';
+}
+
+const formatDate = (iso, withTime = false) => {
+  try {
+    const d = withTime ? new Date(iso) : new Date(`${iso}T12:00:00`);
+    return new Intl.DateTimeFormat(lang, withTime ? { dateStyle: 'medium', timeStyle: 'short' } : { dateStyle: 'long' }).format(d);
+  } catch {
+    return iso;
+  }
+};
+
+/** The card at the top: where this copy stands, and the one action that fits. */
+function updateStatusCard(u, current) {
+  const card = (kind, title, sub, actions = '', extra = '') => `
+    <section class="pgroup upd-status ${kind}">
+      <div class="upd-status-row">
+        <span class="upd-icon" aria-hidden="true"></span>
+        <div class="upd-text"><div class="t">${esc(title)}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}${extra}</div>
+        ${actions ? `<div class="upd-actions">${actions}</div>` : ''}
+      </div>
+    </section>`;
+  const releases = `<a class="btn quiet" href="${RELEASES_URL}" target="_blank" rel="noopener">${esc(t('updates.releases'))}</a>`;
+  if (!updater) return card('info', t('updates.current', { version: current }), t('updates.browser'), releases);
+  if (!u.enabled) return card('info', t('updates.unavailable'), t('updates.unavailableSub'), releases);
+  const checked = u.checkedAt ? t('updates.checkedAt', { when: formatDate(u.checkedAt, true) }) : t('updates.idle');
+  switch (u.status) {
+    case 'checking':
+      return card('busy', t('updates.checking'), checked);
+    case 'downloading': {
+      const progress = Math.max(0, Math.min(100, u.progress ?? 0));
+      const bar = `<div class="upd-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span style="width:${progress}%"></span></div>`;
+      return card('busy', t('updates.downloading', { version: u.version, progress }), t('updates.downloadingSub'), '', bar);
+    }
+    case 'ready':
+      return card('ready', t('updates.ready', { version: u.version }), t('updates.readySub'), `<button class="btn primary" type="button" data-update="install">${esc(t('updates.install'))}</button>`);
+    case 'error':
+      return card('error', t('updates.error'), u.error || '', releases);
+    default:
+      return card('ok', u.status === 'current' ? t('updates.upToDate') : t('updates.current', { version: current }), checked);
+  }
+}
+
+/** One version's notes. `sub` replaces the date line (a version known only by its number has none). */
+function changelogEntry(entry, badge = '', sub = null) {
+  const notes = entry[lang] || entry.en || {};
+  const sections = SECTIONS.filter((k) => notes[k]?.length)
+    .map((k) => `<h3>${esc(t(`updates.section.${k}`))}</h3><ul>${notes[k].map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`)
+    .join('');
+  const missing = `<p>${esc(t('updates.notesUnavailable'))} <a href="${RELEASES_URL}/tag/v${esc(entry.version)}" target="_blank" rel="noopener">${esc(t('updates.releases'))}</a></p>`;
+  return `
+    <section class="pgroup upd-entry">
+      <div class="pgroup-head">
+        <div class="pgroup-title"><div class="t">Vigie ${esc(entry.version)}</div><div class="s">${esc(sub ?? (entry.date ? formatDate(entry.date) : t('updates.unreleased')))}</div></div>
+        ${badge}
+      </div>
+      <div class="upd-notes">${sections || missing}</div>
+    </section>`;
+}
+
+function renderUpdates() {
+  if (!state.status) return;
+  const u = state.updates;
+  const current = u?.current || state.status.version;
+  $('#updates-current').textContent = t('updates.current', { version: current });
+  $('#updates-check').hidden = !updater || !u?.enabled;
+  $('#updates-check').disabled = ['checking', 'downloading', 'ready'].includes(u?.status);
+
+  const html = [updateStatusCard(u || {}, current)];
+  // A newer version: its own notes when the release has them, else a pointer to the release page.
+  if (u?.version && compareVersions(u.version, current) > 0) {
+    const remote = state.remoteNotes?.version === u.version ? state.remoteNotes : null;
+    const newer = (remote?.entries || []).filter((e) => compareVersions(e.version, current) > 0 && compareVersions(e.version, u.version) <= 0);
+    const badge = `<span class="badge managed">${esc(t('updates.available'))}</span>`;
+    if (newer.length) html.push(...newer.map((e) => changelogEntry(e, badge)));
+    else if (!remote?.loading) html.push(changelogEntry({ version: u.version, date: null, en: {}, fr: {} }, badge, ''));
+  }
+  html.push(`<p class="upd-heading">${esc(t('updates.history'))}</p>`);
+  html.push(...releasedUpTo(current).map((e) => changelogEntry(e, e.version === current ? `<span class="badge system">${esc(t('updates.installed'))}</span>` : '')));
+  $('#updates-body').innerHTML = html.join('');
+}
+
+$('#updates-check').addEventListener('click', async () => {
+  $('#updates-check').disabled = true;
+  try {
+    setUpdates(await updater.check());
+  } catch (err) {
+    toast(err.message, 'error');
+    renderUpdates();
+  }
+});
+$('#updates-body').addEventListener('click', async (e) => {
+  const button = e.target.closest('[data-update="install"]');
+  if (!button) return;
+  button.disabled = true;
+  button.textContent = t('updates.installing');
+  try {
+    if (!(await updater.install())) renderUpdates();
+  } catch (err) {
+    toast(err.message, 'error');
+    renderUpdates();
+  }
+});
+if (updater) {
+  updater.get().then(setUpdates).catch(() => {});
+  updater.onChange(setUpdates);
 }
 
 // ------------------------------------------------------------------- manual
