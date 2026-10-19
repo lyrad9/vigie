@@ -2,10 +2,14 @@
 // Only the installed app updates itself: not `npm run app`, and not macOS, where an unsigned app
 // cannot be replaced in place. A failure here never stops the app from running.
 import fs from 'node:fs';
-import { app } from 'electron';
+import { app, net } from 'electron';
 import { DAEMON_LOG } from '../src/paths.js';
+import { sanitizeChangelog } from '../ui/changelog.js';
 
 const EVERY = 4 * 60 * 60 * 1000;
+// The releases electron-updater reads (build.publish in package.json).
+export const RELEASES = 'https://github.com/lyrad9/vigie/releases';
+const notesCache = new Map();
 
 function log(message) {
   try {
@@ -24,7 +28,8 @@ export function canSelfUpdate({ packaged = app.isPackaged, platform = process.pl
  * @param {{ onChange: () => void, onReady: (version: string) => void }} hooks
  */
 export function createUpdater({ onChange, onReady }) {
-  const state = { status: 'idle', version: null, error: null }; // idle | checking | downloading | ready | current | error
+  // status: idle | checking | downloading | ready | current | error. progress: download percent. checkedAt: last answer from GitHub.
+  const state = { status: 'idle', version: null, error: null, progress: null, checkedAt: null };
   let updater = null;
   let timer = null;
 
@@ -32,6 +37,7 @@ export function createUpdater({ onChange, onReady }) {
     Object.assign(state, patch);
     onChange();
   };
+  const now = () => new Date().toISOString();
 
   async function load() {
     if (updater) return updater;
@@ -48,16 +54,20 @@ export function createUpdater({ onChange, onReady }) {
     updater.autoInstallOnAppQuit = false;
     updater.logger = { info: () => {}, warn: (m) => log(String(m)), error: (m) => log(String(m)), debug: () => {} };
     updater.on('checking-for-update', () => state.status !== 'ready' && set({ status: 'checking', error: null }));
-    updater.on('update-not-available', () => state.status !== 'ready' && set({ status: 'current' }));
-    updater.on('update-available', (info) => set({ status: 'downloading', version: info.version }));
+    updater.on('update-not-available', () => state.status !== 'ready' && set({ status: 'current', checkedAt: now() }));
+    updater.on('update-available', (info) => set({ status: 'downloading', version: info.version, progress: 0, checkedAt: now() }));
+    updater.on('download-progress', (p) => {
+      const progress = Math.floor(p?.percent ?? 0);
+      if (state.status === 'downloading' && progress !== state.progress) set({ progress });
+    });
     updater.on('update-downloaded', (info) => {
       log(`${info.version} downloaded`);
-      set({ status: 'ready', version: info.version });
+      set({ status: 'ready', version: info.version, progress: 100 });
       onReady(info.version);
     });
     updater.on('error', (err) => {
       log(`error: ${err?.message || err}`);
-      if (state.status !== 'ready') set({ status: 'error', error: err?.message || String(err) });
+      if (state.status !== 'ready') set({ status: 'error', error: err?.message || String(err), progress: null, checkedAt: now() });
     });
     return updater;
   }
@@ -81,6 +91,30 @@ export function createUpdater({ onChange, onReady }) {
         if (state.status !== 'ready') set({ status: 'error', error: err.message });
       }
       return state;
+    },
+
+    /**
+     * What changed up to `version`, read from that release's changelog.json (scripts/release-notes.js),
+     * so the Updates page can describe a version this copy does not know yet. Null when unreachable.
+     */
+    async notes(version) {
+      if (!/^\d+\.\d+\.\d+$/.test(String(version))) return null;
+      if (!notesCache.has(version)) {
+        notesCache.set(
+          version,
+          net
+            .fetch(`${RELEASES}/download/v${version}/changelog.json`, { signal: AbortSignal.timeout(10000) })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => (data ? sanitizeChangelog(data) : null))
+            .catch((err) => {
+              log(`notes for ${version}: ${err.message}`);
+              return null;
+            }),
+        );
+      }
+      const notes = await notesCache.get(version);
+      if (!notes) notesCache.delete(version); // try again next time
+      return notes;
     },
 
     /** Run the downloaded installer silently. Returns false when there is nothing to install. */

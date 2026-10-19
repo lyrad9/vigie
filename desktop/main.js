@@ -1,7 +1,7 @@
 // Vigie desktop: a native window over the supervisor, plus a tray menu to control servers
 // without opening the window. The supervisor runs inside this process unless a daemon
 // started by the CLI is already answering, in which case the app attaches to it.
-import { app, BrowserWindow, dialog, Menu, Notification, Tray, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, Tray, nativeImage, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installSkill } from '../src/skill.js';
@@ -26,8 +26,13 @@ let lastMenuKey = '';
 let t = trayText('auto', '');
 
 // Updates download in the background; installing waits for a restart or the next quit.
+let lastUpdateStatus = '';
 const updates = createUpdater({
   onChange: () => {
+    win?.webContents.send('updates:changed', updateView());
+    // Download progress only concerns the window; the tray changes with the status.
+    if (updates.state.status === lastUpdateStatus) return;
+    lastUpdateStatus = updates.state.status;
     lastMenuKey = '';
     refreshTray();
   },
@@ -102,7 +107,7 @@ function createWindow() {
     icon: path.join(ICONS, 'icon.png'),
     backgroundColor: '#161618',
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: path.join(HERE, 'preload.cjs') },
   });
   win.loadURL(apiBase);
   win.once('ready-to-show', () => {
@@ -211,7 +216,7 @@ async function refreshTray() {
     { label: t('installSkill'), click: () => addSkill() },
     updates.state.status === 'ready'
       ? { label: t('restartToUpdate', { version: updates.state.version }), click: () => quit({ update: 'restart' }) }
-      : { label: updates.state.status === 'downloading' ? t('updateDownloadingItem', { version: updates.state.version }) : t('checkUpdates'), enabled: updates.state.status !== 'downloading' && updates.state.status !== 'checking', click: () => checkForUpdates() },
+      : { label: updates.state.status === 'downloading' ? t('updateDownloadingItem', { version: updates.state.version }) : t('checkUpdates'), click: () => checkForUpdates() },
     { type: 'separator' },
     { label: daemon ? t('quitAll') : t('quit'), click: () => quit() },
   );
@@ -261,13 +266,34 @@ async function addSkill() {
 
 // ----------------------------------------------------------------- updates
 
-async function checkForUpdates() {
-  if (!updates.enabled) return tell(t('updateUnavailable'), t('updateUnavailableDetail'));
-  const s = await updates.check();
-  if (s.status === 'current') return tell(t('upToDate', { version: app.getVersion() }));
-  if (s.status === 'downloading') return tell(t('updateDownloading', { version: s.version }), t('updateDownloadingDetail'));
-  if (s.status === 'ready') return tell(t('updateReadyTitle', { version: s.version }), t('updateReadyBody'));
-  if (s.status === 'error') return tell(t('updateError'), s.error || '', 'error');
+/** What the window's Updates page shows (see preload.cjs). */
+function updateView() {
+  return { ...updates.state, current: app.getVersion(), enabled: updates.enabled };
+}
+
+// The window's Updates page. Only the app's own page, served by the supervisor, may call these.
+const fromApp = (event) => Boolean(apiBase) && String(event.senderFrame?.url || '').startsWith(`${apiBase}/`);
+const handle = (channel, fn) =>
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!fromApp(event)) throw new Error('Not allowed');
+    return fn(...args);
+  });
+handle('updates:get', () => updateView());
+handle('updates:check', async () => {
+  await updates.check();
+  return updateView();
+});
+handle('updates:install', () => {
+  if (updates.state.status !== 'ready') return false;
+  quit({ update: 'restart' });
+  return true;
+});
+handle('updates:notes', (version) => updates.notes(version));
+
+/** The tray's "Check for updates": the Updates page shows the answer as it comes. */
+function checkForUpdates() {
+  showWindow('#/updates');
+  if (updates.enabled && updates.state.status !== 'downloading' && updates.state.status !== 'ready') updates.check().catch(() => {});
 }
 
 // --------------------------------------------------------------- lifecycle

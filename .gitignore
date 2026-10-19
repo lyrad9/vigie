@@ -8,3 +8,5 @@ dist/
 .claude/
 .vscode/
 .impeccable/
+/release-notes.md
+/changelog.json
