@@ -5,7 +5,7 @@
 export const CHANGELOG = [
   {
     version: '0.1.5',
-    date: null,
+    date: '2026-10-19',
     en: {
       new: [
         'An Updates page in the app: your version, the one available, what changed in each version, and a button to update.',

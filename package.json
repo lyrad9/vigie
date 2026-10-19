@@ -1,7 +1,7 @@
 {
   "name": "vigie",
   "productName": "Vigie",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "One supervisor for every local dev server. Your agents read the live state instead of starting the same server twice.",
   "author": "Daryl Ngako (https://lyrad.dev)",
   "type": "module",
