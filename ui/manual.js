@@ -215,8 +215,7 @@ const en = [
 <h3>Theme and language</h3>
 <p>At the bottom of the sidebar: <strong>Theme</strong> (System, Light, Dark) and <strong>Language</strong> (Auto, English, Français). Auto follows your system's language; the choice also applies to the tray menu. Your version of Vigie is shown just below.</p>
 <h3>Updates</h3>
-<p>Vigie updates itself. When it starts, then every few hours, it checks whether a new version was published and downloads it in the background, without interrupting anything. Once it is ready, a notification and the tray menu offer <strong>Restart to update</strong>: Vigie stops your servers, installs the new version, opens again and restarts the servers that were running. If you don't restart, the update installs the next time you quit Vigie.</p>
-<p>To check right away: tray icon → <strong>Check for updates…</strong>. Updates only apply to the app installed with the installer.</p>
+<p>Vigie updates itself, and the <strong>Updates</strong> page of the sidebar shows your version and what changed. See <a href="#/manual/updates">Updating Vigie</a>.</p>
 <h3>Where Vigie keeps its files</h3>
 <table>
   <tr><th>File</th><th>Content</th></tr>
@@ -228,6 +227,36 @@ const en = [
 <p>On Windows, <code>~</code> is your user folder, for example <code>C:\\Users\\you</code>.</p>
 <h3>The local API</h3>
 <p>The window, the command and the agents talk to Vigie through an API on <code>http://127.0.0.1:7744</code>. It only accepts requests from your own machine and refuses requests coming from websites.</p>`,
+  },
+  {
+    id: 'updates',
+    title: 'Updating Vigie',
+    html: `
+<p class="lead">Vigie updates itself: you never need to download an installer again. You can follow and start updates from the <strong>Updates</strong> page of the sidebar.</p>
+<h3>How it works</h3>
+<ul>
+  <li>A few seconds after Vigie starts, then every 4 hours, it checks whether a new version was published.</li>
+  <li>When there is one, it downloads it in the background, without interrupting your servers.</li>
+  <li>Once it is ready, a notification appears, <strong>Updates</strong> shows a green dot in the sidebar, and the tray menu offers <strong>Restart to update to…</strong>.</li>
+</ul>
+<h3>Update from the app</h3>
+<ol>
+  <li>Open <strong>Updates</strong> in the sidebar, or tray icon → <strong>Check for updates…</strong>.</li>
+  <li>Click <strong>Check now</strong> if you don't want to wait for the next check. The page shows the download as it goes.</li>
+  <li>When the new version is ready, click <strong>Restart and update</strong>.</li>
+</ol>
+<p>Vigie stops your servers cleanly, installs the new version, opens again and restarts the servers that were running. It takes about a minute. If you don't restart, the update installs the next time you quit Vigie.</p>
+<h3>What changed in each version</h3>
+<p>The <strong>Updates</strong> page lists every version with what it brings (new features, improvements, fixes) in your language. A version that is ready but not installed yet is marked <strong>Available</strong>; yours is marked <strong>Installed</strong>.</p>
+<h3>Install a version by hand</h3>
+<p>You can also download the installer (<code>Vigie-Setup-x.y.z.exe</code>) from the <a href="https://github.com/lyrad9/vigie/releases" target="_blank" rel="noopener">releases page</a> and run it, even while Vigie runs: the installer first asks Vigie to stop your servers, then replaces it. Your projects and settings are kept.</p>
+<h3>Which copies update themselves</h3>
+<ul>
+  <li><strong>Windows</strong>: Vigie installed with the installer.</li>
+  <li><strong>Linux</strong>: the AppImage.</li>
+  <li><strong>macOS</strong>, and any copy started from the source code (<code>npm run app</code>): no automatic update. Update the source (<code>git pull</code>, then <code>npm install</code>) and start Vigie again.</li>
+</ul>
+<aside class="note"><strong>Your servers are never cut off by surprise.</strong> Downloading changes nothing: Vigie only restarts when you ask it to, or when you quit it.</aside>`,
   },
   {
     id: 'troubleshooting',
@@ -464,8 +493,7 @@ const fr = [
 <h3>Thème et langue</h3>
 <p>En bas de la barre latérale : <strong>Thème</strong> (Système, Clair, Sombre) et <strong>Langue</strong> (Auto, English, Français). Auto suit la langue de votre système ; le choix s’applique aussi au menu de l’icône. Votre version de Vigie est indiquée juste en dessous.</p>
 <h3>Mises à jour</h3>
-<p>Vigie se met à jour tout seul. Au démarrage, puis toutes les quelques heures, il vérifie si une nouvelle version a été publiée et la télécharge en arrière-plan, sans rien interrompre. Une fois prête, une notification et le menu de l’icône proposent <strong>Redémarrer pour passer à…</strong> : Vigie arrête vos serveurs, installe la nouvelle version, se rouvre et relance les serveurs qui tournaient. Si vous ne redémarrez pas, la mise à jour s’installe la prochaine fois que vous quittez Vigie.</p>
-<p>Pour vérifier tout de suite : icône → <strong>Rechercher les mises à jour…</strong>. Les mises à jour ne concernent que l’app installée avec l’installateur.</p>
+<p>Vigie se met à jour tout seul, et la page <strong>Mises à jour</strong> de la barre latérale indique votre version et ce qui a changé. Voir <a href="#/manual/updates">Mettre Vigie à jour</a>.</p>
 <h3>Où Vigie range ses fichiers</h3>
 <table>
   <tr><th>Fichier</th><th>Contenu</th></tr>
@@ -477,6 +505,36 @@ const fr = [
 <p>Sous Windows, <code>~</code> désigne votre dossier utilisateur, par exemple <code>C:\\Users\\vous</code>.</p>
 <h3>L’API locale</h3>
 <p>La fenêtre, la commande et les agents parlent à Vigie via une API sur <code>http://127.0.0.1:7744</code>. Elle n’accepte que les requêtes venant de votre propre machine et refuse celles qui viennent de sites web.</p>`,
+  },
+  {
+    id: 'updates',
+    title: 'Mettre Vigie à jour',
+    html: `
+<p class="lead">Vigie se met à jour tout seul : vous n’avez plus jamais besoin de retélécharger un installeur. Vous pouvez suivre et lancer les mises à jour depuis la page <strong>Mises à jour</strong> de la barre latérale.</p>
+<h3>Comment ça marche</h3>
+<ul>
+  <li>Quelques secondes après son démarrage, puis toutes les 4 heures, Vigie vérifie si une nouvelle version a été publiée.</li>
+  <li>S’il y en a une, il la télécharge en arrière-plan, sans interrompre vos serveurs.</li>
+  <li>Une fois prête, une notification apparaît, <strong>Mises à jour</strong> affiche un point vert dans la barre latérale, et le menu de l’icône propose <strong>Redémarrer pour passer à…</strong>.</li>
+</ul>
+<h3>Mettre à jour depuis l’app</h3>
+<ol>
+  <li>Ouvrez <strong>Mises à jour</strong> dans la barre latérale, ou icône → <strong>Rechercher les mises à jour…</strong>.</li>
+  <li>Cliquez sur <strong>Vérifier maintenant</strong> si vous ne voulez pas attendre la prochaine vérification. La page montre le téléchargement en direct.</li>
+  <li>Quand la nouvelle version est prête, cliquez sur <strong>Redémarrer et mettre à jour</strong>.</li>
+</ol>
+<p>Vigie arrête proprement vos serveurs, installe la nouvelle version, se rouvre et relance les serveurs qui tournaient. Cela prend environ une minute. Si vous ne redémarrez pas, la mise à jour s’installe la prochaine fois que vous quittez Vigie.</p>
+<h3>Ce qui change dans chaque version</h3>
+<p>La page <strong>Mises à jour</strong> liste chaque version avec ce qu’elle apporte (nouveautés, améliorations, corrections) dans votre langue. Une version prête mais pas encore installée est marquée <strong>Disponible</strong> ; la vôtre est marquée <strong>Installée</strong>.</p>
+<h3>Installer une version à la main</h3>
+<p>Vous pouvez aussi télécharger l’installeur (<code>Vigie-Setup-x.y.z.exe</code>) sur la <a href="https://github.com/lyrad9/vigie/releases" target="_blank" rel="noopener">page des versions</a> et le lancer, même pendant que Vigie tourne : l’installeur demande d’abord à Vigie d’arrêter vos serveurs, puis le remplace. Vos projets et réglages sont conservés.</p>
+<h3>Quelles copies se mettent à jour toutes seules</h3>
+<ul>
+  <li><strong>Windows</strong> : Vigie installé avec l’installeur.</li>
+  <li><strong>Linux</strong> : l’AppImage.</li>
+  <li><strong>macOS</strong>, et toute copie lancée depuis le code source (<code>npm run app</code>) : pas de mise à jour automatique. Mettez le code à jour (<code>git pull</code>, puis <code>npm install</code>) et relancez Vigie.</li>
+</ul>
+<aside class="note"><strong>Vos serveurs ne sont jamais coupés par surprise.</strong> Le téléchargement ne change rien : Vigie ne redémarre que quand vous le lui demandez, ou quand vous le quittez.</aside>`,
   },
   {
     id: 'troubleshooting',

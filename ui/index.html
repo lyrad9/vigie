@@ -40,6 +40,11 @@
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4.2C6.6 3.2 4.6 2.9 2.5 3.1v9.4c2.1-.2 4.1.1 5.5 1.1 1.4-1 3.4-1.3 5.5-1.1V3.1c-2.1-.2-4.1.1-5.5 1.1zM8 4.2v9.4" /></svg>
           <span data-i18n="side.manual">Manual</span>
         </a>
+        <a class="side-btn" id="btn-updates" href="#/updates">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8a5.2 5.2 0 1 1-1.5-3.7M13.2 2.8v2.6h-2.6" /><path d="M8 5.4V8l1.8 1.2" /></svg>
+          <span data-i18n="side.updates">Updates</span>
+          <span class="side-dot" id="updates-dot" hidden></span>
+        </a>
         <div class="settings">
           <div class="seg" role="radiogroup" id="theme-seg" data-i18n-attr="aria-label:side.theme">
             <button type="button" role="radio" data-theme-choice="system" data-i18n-attr="aria-label:theme.system;title:theme.system">
@@ -144,6 +149,20 @@
         </header>
         <div class="ports" id="ports-groups"></div>
         <p class="footnote" id="ports-foot"></p>
+      </section>
+
+      <!-- Updates -->
+      <section class="view" id="view-updates" hidden>
+        <header class="head">
+          <div class="head-title">
+            <div class="crumb" id="updates-current"></div>
+            <h1 data-i18n="updates.title">Updates</h1>
+          </div>
+          <div class="head-actions">
+            <button class="btn quiet" id="updates-check" type="button" hidden data-i18n="updates.check">Check now</button>
+          </div>
+        </header>
+        <div class="ports updates" id="updates-body"></div>
       </section>
 
       <!-- Manual -->

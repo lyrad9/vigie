@@ -93,7 +93,7 @@ test('every tray text exists in English and French with the same placeholders', 
   assert.deepEqual(Object.keys(TRAY_STRINGS.fr).sort(), Object.keys(TRAY_STRINGS.en).sort());
   for (const [key, value] of Object.entries(TRAY_STRINGS.fr)) assert.equal(vars(value), vars(TRAY_STRINGS.en[key]), key);
   assert.equal(trayText('auto', 'fr-FR')('restartToUpdate', { version: '0.1.2' }), 'Redémarrer pour passer à 0.1.2');
-  assert.equal(trayText('en', 'fr-FR')('upToDate', { version: '0.1.2' }), 'Vigie 0.1.2 is up to date.');
+  assert.equal(trayText('en', 'fr-FR')('updateReadyTitle', { version: '0.1.2' }), 'Vigie 0.1.2 is ready');
 });
 
 test('the manual has the same chapters in both languages, each with real content', () => {

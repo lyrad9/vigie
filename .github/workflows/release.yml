@@ -33,19 +33,26 @@ jobs:
             exit 1
           fi
       - run: npm ci
+      # Before the slow steps: a release needs its entry, with a date, in ui/changelog.js.
+      - name: Release notes from the changelog
+        shell: bash
+        run: |
+          node scripts/release-notes.js "$GITHUB_REF_NAME" --json changelog.json > release-notes.md
+          cat release-notes.md
       - run: npm run check
       - run: npm test
       - name: Package (unsigned)
         run: npx electron-builder --win --publish never
       # The installed app updates itself from the latest release: it reads latest.yml, then
       # downloads the installer it names (the .blockmap lets it fetch only what changed).
+      # Its Updates page reads changelog.json to describe a version it does not know yet.
       - name: Publish the GitHub release
         shell: bash
         run: |
-          files=(dist/*.exe dist/*.exe.blockmap dist/latest.yml)
+          files=(dist/*.exe dist/*.exe.blockmap dist/latest.yml changelog.json)
           for f in "${files[@]}"; do [ -f "$f" ] || { echo "Missing $f" >&2; exit 1; }; done
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "Vigie ${GITHUB_REF_NAME#v}" --generate-notes --latest
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "Vigie ${GITHUB_REF_NAME#v}" --notes-file release-notes.md --latest
           fi
