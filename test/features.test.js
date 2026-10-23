@@ -107,3 +107,16 @@ test('the manual has the same chapters in both languages, each with real content
     }
   }
 });
+
+test('window layout: the page never grows past the window, and the desktop window never stacks', () => {
+  const root = path.resolve(import.meta.dirname, '..');
+  const css = fs.readFileSync(path.join(root, 'ui', 'style.css'), 'utf8');
+  // The project list scrolls and holds absolutely positioned screen-reader texts: unless the list is
+  // positioned, those of the rows scrolled out of view stretch the page below the window.
+  assert.match(css, /\n\.projects \{[^}]*position: relative/);
+  // The sidebar only moves above the content below the narrowest width the desktop window allows.
+  const minWidth = Number(fs.readFileSync(path.join(root, 'desktop', 'main.js'), 'utf8').match(/minWidth: (\d+)/)[1]);
+  const stacked = [...css.matchAll(/@media \(max-width: (\d+)px\) \{\s*\.app \{ grid-template-columns: 1fr;/g)].map((m) => Number(m[1]));
+  assert.equal(stacked.length, 1);
+  assert.ok(stacked[0] < minWidth, `stacks at ${stacked[0]}px, the window can be ${minWidth}px wide`);
+});
