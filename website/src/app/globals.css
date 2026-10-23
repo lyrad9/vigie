@@ -106,8 +106,8 @@
 
 /* ------------------------------------------------------------------- base */
 
+/* Smooth scrolling comes from Lenis (components/smooth-scroll.tsx), not scroll-behavior, which would fight it. */
 html {
-  scroll-behavior: smooth;
   scroll-padding-top: 6.5rem;
   background: var(--deck);
 }
