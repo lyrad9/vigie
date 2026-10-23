@@ -42,7 +42,7 @@ export function Footer() {
         <div className="mx-auto max-w-[75rem] px-6 pt-14 sm:px-10 sm:pt-16">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.45fr)] lg:gap-16">
             <div>
-              <Link href="/" className="inline-flex items-center gap-3 font-display text-brand font-black tracking-[-0.03em] text-ink" aria-label="Vigie, accueil">
+              <Link href="/" className="inline-flex items-center gap-3 font-display text-brand font-extrabold tracking-[-0.03em] text-ink" aria-label="Vigie, accueil">
                 <Logo size={40} id="footer" />
                 Vigie
               </Link>
@@ -106,7 +106,7 @@ export function Footer() {
 
         <p
           aria-hidden="true"
-          className="pointer-events-none mt-4 -mb-[0.2em] text-center font-display text-[clamp(6.5rem,27vw,23rem)] leading-[0.8] font-black tracking-[-0.06em] text-wash select-none"
+          className="pointer-events-none mt-4 -mb-[0.2em] text-center font-display text-[clamp(6.5rem,27vw,23rem)] leading-[0.8] font-extrabold tracking-[-0.06em] text-wash select-none"
         >
           Vigie
         </p>

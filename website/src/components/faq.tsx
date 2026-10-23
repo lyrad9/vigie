@@ -95,7 +95,7 @@ export function Faq() {
   return (
     <section id="faq" className="py-24 sm:py-32" aria-labelledby="faq-title">
       <div className="mx-auto max-w-[50rem] px-5 sm:px-8">
-        <Headline id="faq-title" className="text-center text-[clamp(2.2rem,4.6vw,3.75rem)] leading-[1.02]">
+        <Headline id="faq-title" className="text-center text-[clamp(1.85rem,3.3vw,2.75rem)] leading-[1.1]">
           Les questions <Accent>fréquentes</Accent>
         </Headline>
         <Lede className="mx-auto mt-5 text-center">Une question qui n&apos;est pas ici ? Ouvrez une discussion sur GitHub.</Lede>

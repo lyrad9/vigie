@@ -37,9 +37,9 @@ export function InlineLogo({ id }: { id: string }) {
   );
 }
 
-/** The one accent of a headline: Satoshi Black Italic in Signal Blue. */
+/** The one accent of a headline: the same weight, upright, in Signal Blue. */
 export function Accent({ children }: { children: ReactNode }) {
-  return <em className="font-display font-black italic tracking-[-0.03em] text-signal">{children}</em>;
+  return <em className="font-display font-extrabold not-italic text-signal">{children}</em>;
 }
 
 export function Headline({
@@ -56,7 +56,7 @@ export function Headline({
   id?: string;
 }) {
   return (
-    <Tag id={id} style={style} className={`font-display font-extrabold tracking-[-0.035em] text-balance text-ink ${className}`}>
+    <Tag id={id} style={style} className={`font-display font-extrabold tracking-[-0.03em] text-balance text-ink ${className}`}>
       {children}
     </Tag>
   );

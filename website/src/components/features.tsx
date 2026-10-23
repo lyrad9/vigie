@@ -150,7 +150,7 @@ export function Features() {
     >
       <div className="mx-auto max-w-[75rem] px-5 sm:px-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <Headline className="max-w-[16ch] text-[clamp(2.2rem,4.6vw,3.75rem)] leading-[1.02]">
+          <Headline className="max-w-[16ch] text-[clamp(1.85rem,3.3vw,2.75rem)] leading-[1.1]">
             Gardez la main <Accent>sur chaque port</Accent> de votre machine
           </Headline>
           <PrimaryButton href={site.download} icon={Icon.download} className="lg:min-w-[22rem]">

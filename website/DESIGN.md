@@ -24,25 +24,25 @@ colors:
   syntax-number: "oklch(0.82 0.1 300)"
 typography:
   display:
-    fontFamily: "Satoshi, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(2.6rem, 5.6vw, 4.6rem)"
     fontWeight: 800
     lineHeight: 0.98
     letterSpacing: "-0.04em"
   headline:
-    fontFamily: "Satoshi, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(2.2rem, 4.6vw, 3.75rem)"
     fontWeight: 800
     lineHeight: 1.02
     letterSpacing: "-0.035em"
   brand:
-    fontFamily: "Satoshi, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.375rem"
     fontWeight: 900
     lineHeight: 1
     letterSpacing: "-0.03em"
   title:
-    fontFamily: "Satoshi, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 700
     lineHeight: 1.25
@@ -53,7 +53,7 @@ typography:
     fontWeight: 400
     lineHeight: 1.6
   ui:
-    fontFamily: "Satoshi, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.0625rem"
     fontWeight: 700
     lineHeight: 1.2
@@ -122,8 +122,8 @@ A calm, bright deck where everything that runs on the machine is laid out in pla
 Headlines are heavy and tight like a harbor sign; paragraphs are soft and readable. Darkness is used as a material, not a theme: terminals and the closing band are always deep ink, in light and dark mode alike.
 
 **Key Characteristics:**
-- Satoshi for every heading, DM Sans for every paragraph; code in the system monospace stack.
-- Accent words set in Satoshi Black Italic, Signal Blue — never a script face.
+- Plus Jakarta Sans for every heading and control, DM Sans for every paragraph; code in the system monospace stack.
+- Accent words set upright in Signal Blue, same weight as the headline: no italics anywhere, never a script face.
 - Double frames: a white outer frame with hairline border holding the product shot or panel.
 - Status color (green / amber / red) only ever means server state.
 
@@ -150,18 +150,18 @@ Restrained: cool neutrals carry the page, Harbor Ink carries every decision, Sig
 
 ## Typography
 
-**Display Font:** Satoshi (self-hosted variable, 300–900, roman + italic)
+**Display Font:** Plus Jakarta Sans (next/font/google, 200–800, roman only)
 **Body Font:** DM Sans (next/font/google)
 **Label/Mono Font:** system monospace stack, for code and port numbers only
 
-**Character:** Satoshi's geometric, slightly mechanical forms read like signage at a port; DM Sans keeps long explanations calm.
+**Character:** Plus Jakarta Sans is wide and confident without shouting; DM Sans keeps long explanations calm. Headlines stay modest in size (hero 3.5rem max, sections 2.75rem max).
 
 ### Hierarchy
 - **Display** (800, clamp(2.6rem, 5.6vw, 4.6rem), 0.98, -0.04em): the hero headline only.
 - **Headline** (800, clamp(2.2rem, 4.6vw, 3.75rem), 1.02, -0.035em): section titles, centered or left per composition.
 - **Brand** (900, 1.375rem): the Vigie wordmark next to the logo.
 - **Title** (700, 1.25rem, 1.25): card and step titles.
-- **UI** (Satoshi 700, 1.0625rem): buttons, column titles, step chips.
+- **UI** (Plus Jakarta Sans 700, 1.0625rem): buttons, column titles, step chips.
 - **Lede** (400, 1.125rem, 1.6, max 62ch): section intros.
 - **Body / Small** (400, 1rem / 0.9375rem): lists, card copy, nav links.
 - **Code** (system mono, 0.875rem, 1.7): terminals and commands only.
@@ -170,7 +170,7 @@ Restrained: cool neutrals carry the page, Harbor Ink carries every decision, Sig
 Tokens live in `globals.css` as `--text-caption`, `--text-code`, `--text-small`, `--text-ui`, `--text-title`, `--text-brand` (Tailwind `text-*`), alongside Tailwind's `text-base` and `text-lg`. No literal pixel sizes in components.
 
 ### Named Rules
-**The Italic Signal Rule.** The accent word of a headline is Satoshi Black Italic in Signal Blue. One per headline, never two.
+**The Upright Signal Rule.** The accent words of a headline are set upright in Signal Blue, same weight. One accent per headline, never two; no italics on the site.
 
 ## Layout
 
@@ -211,10 +211,10 @@ Generous, consistent rounding on one scale: 44px for the closing band, 28px for 
 ### Do:
 - **Do** show the real Vigie window and real CLI output; demo data is labeled as such.
 - **Do** keep terminals and the closing band in Night Band in both themes.
-- **Do** keep one accent word per headline in Satoshi Black Italic, Signal Blue.
+- **Do** keep one accent per headline, upright, in Signal Blue.
 
 ### Don't:
 - **Don't** use a script or handwritten face anywhere.
 - **Don't** show testimonials, user counts, ratings, customer logos or any social proof.
 - **Don't** use green, amber or red for anything but server state.
-- **Don't** load any font family other than Satoshi and DM Sans.
+- **Don't** load any font family other than Plus Jakarta Sans and DM Sans, and don't set text in italics.
