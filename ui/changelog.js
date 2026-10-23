@@ -4,6 +4,24 @@
 // needs an entry here first. Each entry has the same sections in English and French.
 export const CHANGELOG = [
   {
+    version: '0.1.6',
+    date: '2026-10-23',
+    en: {
+      fixed: [
+        'With many servers, the window no longer scrolls as a whole and no longer shows an empty area below the app.',
+        'Small windows keep the sidebar beside the content, with a tighter layout, instead of stacking it on top.',
+        'Vigie no longer stops at startup when its folder is reached through a shortened Windows path.',
+      ],
+    },
+    fr: {
+      fixed: [
+        'Avec beaucoup de serveurs, la fenêtre ne défile plus en entier et n’affiche plus de zone vide sous l’app.',
+        'Les petites fenêtres gardent la barre latérale à côté du contenu, avec une mise en page plus compacte, au lieu de l’empiler au-dessus.',
+        'Vigie ne s’arrête plus au démarrage quand son dossier est atteint par un chemin Windows raccourci.',
+      ],
+    },
+  },
+  {
     version: '0.1.5',
     date: '2026-10-19',
     en: {
