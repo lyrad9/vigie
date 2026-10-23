@@ -14,8 +14,8 @@ export function ClosingCta() {
           Gratuit · open source · licence MIT
         </p>
 
-        <h2 id="cta-title" className="mx-auto mt-8 max-w-[14ch] font-display text-[clamp(2.5rem,6vw,4.75rem)] leading-[1] font-extrabold tracking-[-0.04em] text-balance text-white">
-          Une seule vigie pour <em className="font-black whitespace-nowrap text-[oklch(0.74_0.15_255)] italic">tous vos serveurs.</em>
+        <h2 id="cta-title" className="mx-auto mt-8 max-w-[14ch] font-display text-[clamp(2rem,4.2vw,3.25rem)] leading-[1.08] font-extrabold tracking-[-0.03em] text-balance text-white">
+          Une seule vigie pour <em className="whitespace-nowrap text-[oklch(0.74_0.15_255)] not-italic">tous vos serveurs.</em>
         </h2>
         <p className="mx-auto mt-7 max-w-[54ch] text-lg leading-relaxed text-pretty text-band-muted">
           Lancez chaque serveur une fois. Laissez vos agents lire l&apos;état au lieu d&apos;en démarrer un autre. Gardez la main sur chaque port.

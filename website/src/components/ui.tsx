@@ -37,9 +37,9 @@ export function InlineLogo({ id }: { id: string }) {
   );
 }
 
-/** The one accent of a headline: Satoshi Black Italic in Signal Blue. */
+/** The one accent of a headline: the same weight, upright, in Signal Blue. */
 export function Accent({ children }: { children: ReactNode }) {
-  return <em className="font-display font-black italic tracking-[-0.03em] text-signal">{children}</em>;
+  return <em className="font-display font-extrabold not-italic text-signal">{children}</em>;
 }
 
 export function Headline({
@@ -56,7 +56,7 @@ export function Headline({
   id?: string;
 }) {
   return (
-    <Tag id={id} style={style} className={`font-display font-extrabold tracking-[-0.035em] text-balance text-ink ${className}`}>
+    <Tag id={id} style={style} className={`font-display font-extrabold tracking-[-0.03em] text-balance text-ink ${className}`}>
       {children}
     </Tag>
   );
@@ -76,7 +76,7 @@ export function PrimaryButton({ children, icon, className = "", ...props }: Link
   return (
     <a
       {...props}
-      className={`group inline-flex h-14 items-center justify-center gap-3 rounded-[14px] bg-button px-7 font-display text-ui font-bold text-button-text shadow-button transition-[filter] duration-300 hover:brightness-110 ${className}`}
+      className={`group inline-flex h-14 items-center justify-center gap-3 rounded-[14px] bg-button px-7 font-display text-ui font-bold text-button-text shadow-button transition-[background-color,color,box-shadow] duration-300 hover:bg-[var(--signal-press)] hover:text-white hover:shadow-[var(--shadow-signal)] ${className}`}
     >
       {children}
       {icon}

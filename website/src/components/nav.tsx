@@ -31,7 +31,7 @@ export function Nav() {
         aria-label="Navigation principale"
         className="mx-auto flex h-[68px] max-w-[75rem] items-center gap-2 rounded-[20px] border border-hairline bg-card/90 pr-2 pl-4 shadow-card backdrop-blur-xl sm:pl-5"
       >
-        <Link href="/" className="flex items-center gap-2.5 font-display text-brand font-black tracking-[-0.03em] text-ink" aria-label="Vigie, accueil">
+        <Link href="/" className="flex items-center gap-2.5 font-display text-brand font-extrabold tracking-[-0.03em] text-ink" aria-label="Vigie, accueil">
           <Logo size={34} id="nav" />
           Vigie
         </Link>
@@ -55,12 +55,11 @@ export function Nav() {
             {Icon.github}
             Code source
           </a>
-          <a
-            href={site.download}
-            className="group hidden h-11 items-center gap-2 rounded-xl bg-button px-4 font-display text-small font-bold text-button-text shadow-button transition-[filter] hover:brightness-110 sm:flex"
-          >
+          <a href={site.download} className="download-cta group hidden h-11 items-center gap-2 rounded-xl px-4 font-display text-small font-bold sm:flex">
             Télécharger
-            {Icon.download}
+            <svg viewBox="0 0 24 24" className="download-cta-arrow size-[18px]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" />
+            </svg>
           </a>
           <button
             type="button"
@@ -92,7 +91,7 @@ export function Nav() {
           ))}
         </ul>
         <div className="mt-2 grid gap-2 border-t border-dashed border-hairline p-2 pt-4 sm:grid-cols-2">
-          <a href={site.download} className="group flex h-12 items-center justify-center gap-2 rounded-xl bg-button font-display font-bold text-button-text shadow-button">
+          <a href={site.download} className="download-cta group flex h-12 items-center justify-center gap-2 rounded-xl font-display font-bold">
             Télécharger pour Windows
             {Icon.download}
           </a>

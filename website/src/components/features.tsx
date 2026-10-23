@@ -132,11 +132,9 @@ export function Features() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  useEffect(() => {
-    if (paused || reduced) return;
-    const t = setTimeout(() => setActive((a) => (a + 1) % FEATURES.length), DURATION);
-    return () => clearTimeout(t);
-  }, [active, paused, reduced]);
+  // The next step comes when the progress bar ends: pausing the bar (hover, focus) pauses the rotation
+  // where it is, and leaving resumes it from there.
+  const next = () => setActive((a) => (a + 1) % FEATURES.length);
 
   return (
     <section
@@ -150,7 +148,7 @@ export function Features() {
     >
       <div className="mx-auto max-w-[75rem] px-5 sm:px-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <Headline className="max-w-[16ch] text-[clamp(2.2rem,4.6vw,3.75rem)] leading-[1.02]">
+          <Headline className="max-w-[16ch] text-[clamp(1.85rem,3.3vw,2.75rem)] leading-[1.1]">
             Gardez la main <Accent>sur chaque port</Accent> de votre machine
           </Headline>
           <PrimaryButton href={site.download} icon={Icon.download} className="lg:min-w-[22rem]">
@@ -187,12 +185,13 @@ export function Features() {
                         <span className="mt-5 block h-1 overflow-hidden rounded-full bg-wash" aria-hidden="true">
                           {on ? (
                             <span
-                              key={`${active}-${paused}-${reduced}`}
+                              key={`${active}-${reduced}`}
                               className="block h-full origin-left rounded-full bg-signal"
+                              onAnimationEnd={next}
                               style={
-                                paused || reduced
+                                reduced
                                   ? { transform: "scaleX(1)" }
-                                  : { animation: `progress ${DURATION}ms linear both` }
+                                  : { animation: `progress ${DURATION}ms linear both`, animationPlayState: paused ? "paused" : "running" }
                               }
                             />
                           ) : null}

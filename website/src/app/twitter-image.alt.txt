@@ -1,0 +1,1 @@
+Vigie : un seul serveur, lu par tous vos agents. La fenêtre de Vigie et Codex, Claude Code et Cursor qui lisent le même serveur au lieu de le relancer.
