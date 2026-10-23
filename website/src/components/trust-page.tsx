@@ -22,7 +22,7 @@ export function TrustPageView({ page }: { page: TrustPage }) {
       <Nav />
       <main>
         <header className="mx-auto max-w-[50rem] px-5 pt-20 pb-10 sm:px-8 sm:pt-28 sm:pb-12">
-          <Headline as="h1" className="text-[clamp(2.4rem,5vw,4rem)] leading-[1.02]">
+          <Headline as="h1" className="text-[clamp(2rem,4vw,3rem)] leading-[1.08]">
             <Heading text={page.heading} />
           </Headline>
           <Lede className="mt-5">{page.lede}</Lede>

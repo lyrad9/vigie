@@ -41,7 +41,7 @@ Built for the agent era rather than for process management in general: a JSON CL
 - Author: Daryl Ngako (https://lyrad.dev). The site credits him in the footer ("Fait par Daryl Ngako", linked to lyrad.dev) and in metadata; LICENSE copyright is his.
 - Name: Vigie (French for a ship's lookout). Logo: blue rounded tile with a lookout ring over three ports (`src/app/icon.svg`).
 - Colors: tweakcn "Modern Minimal" theme, light and dark, shared by the app and the site.
-- Typography (binding, set by the user): Satoshi for headings, DM Sans for paragraphs. No other font family on the site; code samples use the system monospace stack.
+- Typography (binding, set by the user): Plus Jakarta Sans for headings, DM Sans for paragraphs, no italics, headlines kept moderate in size. No other font family on the site; code samples use the system monospace stack.
 - Site language: French. App UI and CLI output: English.
 - Primary action on the landing page: download the Windows installer (GitHub release `releases/latest`); secondary: view the source.
 - Landing page reference set by the user: ekklo.com, followed closely in structure and craft, without its script font.

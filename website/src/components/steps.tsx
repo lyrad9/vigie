@@ -24,7 +24,7 @@ function StepCard({
       }`}
     >
       <div className={`flex items-center gap-3 rounded-[20px] px-3 py-2.5 ${dark ? "bg-band-raised" : "bg-wash"}`}>
-        <span className={`grid size-9 place-items-center rounded-full font-display text-ui font-black ${dark ? "bg-white/10 text-white" : "bg-card text-ink shadow-card"}`}>
+        <span className={`grid size-9 place-items-center rounded-full font-display text-ui font-extrabold ${dark ? "bg-white/10 text-white" : "bg-card text-ink shadow-card"}`}>
           {n}
         </span>
         <span className={`font-display text-ui font-bold ${dark ? "text-white" : "text-ink"}`}>Étape {n}</span>
@@ -70,7 +70,7 @@ export function Steps() {
   return (
     <section className="py-24 sm:py-32" aria-labelledby="steps-title">
       <div className="mx-auto max-w-[75rem] px-5 sm:px-8">
-        <Headline id="steps-title" className="mx-auto max-w-[17ch] text-center text-[clamp(2.2rem,4.6vw,3.75rem)] leading-[1.02]">
+        <Headline id="steps-title" className="mx-auto max-w-[17ch] text-center text-[clamp(1.85rem,3.3vw,2.75rem)] leading-[1.1]">
           Démarrez en <Accent>trois étapes</Accent>, sans rien reconfigurer
         </Headline>
 

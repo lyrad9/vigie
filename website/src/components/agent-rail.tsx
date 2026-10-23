@@ -119,7 +119,7 @@ function SkillVignette() {
   return (
     <div className="rotate-[-1.5deg] rounded-2xl bg-[oklch(0.98_0.003_250)] p-5 text-[oklch(0.25_0.02_262)] shadow-[0_18px_30px_-18px_oklch(0_0_0/0.7)]">
       <p className="font-mono text-caption text-[oklch(0.5_0.02_262)]">~/.agents/skills/vigie/SKILL.md</p>
-      <p className="mt-3 font-display text-title leading-tight font-black">Inspect first, launch only if needed</p>
+      <p className="mt-3 font-display text-title leading-tight font-extrabold">Inspect first, launch only if needed</p>
       <p className="mt-3 border-l-2 border-[oklch(0.52_0.2_262)] pl-3 text-small leading-snug">
         Never start a dev server yourself before asking Vigie.
       </p>
@@ -175,7 +175,7 @@ export function AgentRail() {
   return (
     <section id="agents" className="overflow-x-clip py-24 sm:py-32" aria-labelledby="agents-title">
       <div className="mx-auto max-w-[75rem] px-5 sm:px-8">
-        <Headline id="agents-title" className="max-w-[18ch] text-[clamp(2.2rem,4.6vw,3.75rem)] leading-[1.02]">
+        <Headline id="agents-title" className="max-w-[18ch] text-[clamp(1.85rem,3.3vw,2.75rem)] leading-[1.1]">
           Votre agent lit l&apos;état, <Accent>puis décide.</Accent>
         </Headline>
         <div className="mt-8 flex items-center justify-between gap-4">

@@ -145,9 +145,12 @@ describe("homepage HTML metadata", () => {
     assert.match(page, /<link rel="alternate" type="text\/markdown" href="https:\/\/vigie\.lyrad\.dev\/index\.md"/);
   });
 
-  test("Open Graph type and image", () => {
+  test("Open Graph and Twitter share images", () => {
     assert.match(page, /<meta property="og:type" content="website"/);
-    assert.match(page, /<meta property="og:image" content="https:\/\/vigie\.lyrad\.dev\/screens\/app-light\.png"/);
+    assert.match(page, /<meta property="og:image" content="https:\/\/vigie\.lyrad\.dev\/opengraph-image\.png(\?[^"]*)?"/);
+    assert.match(page, /<meta property="og:image:alt" content="Vigie : un seul serveur/);
+    assert.match(page, /<meta name="twitter:card" content="summary_large_image"/);
+    assert.match(page, /<meta name="twitter:image" content="https:\/\/vigie\.lyrad\.dev\/twitter-image\.png(\?[^"]*)?"/);
   });
 
   test("JSON-LD parses and holds SoftwareApplication and Organization", () => {

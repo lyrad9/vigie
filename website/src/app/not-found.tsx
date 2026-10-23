@@ -16,7 +16,7 @@ export default function NotFound() {
       <Nav />
       <main className="mx-auto max-w-[50rem] px-5 pt-24 pb-8 text-center sm:px-8 sm:pt-32">
         <p className="font-mono text-small text-ink-faint">404</p>
-        <Headline as="h1" className="mt-4 text-[clamp(2.4rem,5vw,4rem)] leading-[1.02]">
+        <Headline as="h1" className="mt-4 text-[clamp(2rem,4vw,3rem)] leading-[1.08]">
           Cette page est <Accent>introuvable</Accent>
         </Headline>
         <Lede className="mx-auto mt-5">

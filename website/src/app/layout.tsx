@@ -1,18 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans } from "next/font/google";
-import localFont from "next/font/local";
+import { DM_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import { openGraphBase } from "@/lib/metadata.ts";
 import "./globals.css";
 
-// The only two families on the site: Satoshi for headings, DM Sans for paragraphs.
-const satoshi = localFont({
-  src: [
-    { path: "../fonts/Satoshi-Variable.woff2", weight: "300 900", style: "normal" },
-    { path: "../fonts/Satoshi-VariableItalic.woff2", weight: "300 900", style: "italic" },
-  ],
-  variable: "--font-satoshi",
-  display: "swap",
-});
+// The only two families on the site: Plus Jakarta Sans for headings and UI, DM Sans for paragraphs.
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta", display: "swap" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
 
 export const metadata: Metadata = {
@@ -32,6 +24,12 @@ export const metadata: Metadata = {
     title: "Vigie — superviseur de serveurs de dev pour agents IA",
     description: "Inspecter d'abord, lancer seulement si besoin. Gratuit et open source, pour Windows.",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vigie — superviseur de serveurs de dev pour agents IA",
+    description: "Un seul serveur, lu par tous vos agents. Gratuit et open source, pour Windows.",
+    creator: "@daryl_ngako",
+  },
 };
 
 export const viewport: Viewport = {
@@ -46,7 +44,7 @@ const themeScript = `(function(){try{var t=localStorage.getItem('vigie-theme');v
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fr" suppressHydrationWarning className={`${satoshi.variable} ${dmSans.variable} antialiased`}>
+    <html lang="fr" suppressHydrationWarning className={`${jakarta.variable} ${dmSans.variable} antialiased`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

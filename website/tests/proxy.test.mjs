@@ -64,7 +64,7 @@ describe("proxy", () => {
   test("the matcher covers pages and .md URLs, not assets or machine files", () => {
     const re = new RegExp(`^${config.matcher[0]}$`);
     for (const p of ["/", "/about", "/index.md", "/index.html.md", "/nope/deep"]) assert.ok(re.test(p), p);
-    for (const p of ["/llms.txt", "/sitemap.xml", "/robots.txt", "/icon.svg", "/_next/static/x.js", "/screens/app-light.png"]) {
+    for (const p of ["/llms.txt", "/sitemap.xml", "/robots.txt", "/icon.svg", "/_next/static/x.js", "/screens/app-light.png", "/opengraph-image.png", "/twitter-image.png"]) {
       assert.ok(!re.test(p), p);
     }
   });
