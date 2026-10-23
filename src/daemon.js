@@ -76,7 +76,15 @@ function watchConfig(sup) {
     }
   };
   try {
-    fs.watch(HOME, (_event, filename) => {
+    // Watch the folder's long path: given a Windows 8.3 short path (C:\Users\NGAKOD~1\…), libuv
+    // aborts the whole process at the first file event. realpathSync.native expands it; the JS one does not.
+    let dir = HOME;
+    try {
+      dir = fs.realpathSync.native(HOME);
+    } catch {
+      /* watch it as given */
+    }
+    fs.watch(dir, (_event, filename) => {
       if (filename && filename !== 'config.json') return;
       clearTimeout(timer);
       timer = setTimeout(reload, 250);

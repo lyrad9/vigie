@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const VERSION = '0.1.5';
+export const VERSION = '0.1.6';
 export const DEFAULT_API_PORT = 7744;
 
 export const HOME = process.env.VIGIE_HOME || path.join(os.homedir(), '.config', 'vigie');
