@@ -49,13 +49,21 @@ export function Footer() {
               <p className="mt-5 max-w-[32ch] text-lg leading-relaxed text-ink-soft">
                 Un seul superviseur pour tous vos serveurs locaux, lu par tous vos agents.
               </p>
-              <a
-                href={site.repo}
-                className="mt-7 inline-flex min-h-11 items-center gap-2.5 rounded-xl border border-hairline bg-card px-4 text-small font-medium text-ink transition-[background-color,border-color] hover:border-hairline-strong hover:bg-wash"
-              >
-                {Icon.github}
-                lyrad9/vigie
-              </a>
+              <div className="mt-7 flex flex-wrap items-center gap-2.5">
+                <a href={site.download} className="download-cta group inline-flex h-11 items-center gap-2 rounded-xl px-4 font-display text-small font-bold">
+                  Télécharger
+                  <svg viewBox="0 0 24 24" className="download-cta-arrow size-[18px]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" />
+                  </svg>
+                </a>
+                <a
+                  href={site.repo}
+                  className="inline-flex h-11 items-center gap-2.5 rounded-xl border border-hairline bg-card px-4 text-small font-medium text-ink transition-[background-color,border-color] hover:border-hairline-strong hover:bg-wash"
+                >
+                  {Icon.github}
+                  lyrad9/vigie
+                </a>
+              </div>
             </div>
 
             <nav className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3" aria-label="Pied de page">

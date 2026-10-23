@@ -24,6 +24,12 @@ export const metadata: Metadata = {
     title: "Vigie — superviseur de serveurs de dev pour agents IA",
     description: "Inspecter d'abord, lancer seulement si besoin. Gratuit et open source, pour Windows.",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vigie — superviseur de serveurs de dev pour agents IA",
+    description: "Un seul serveur, lu par tous vos agents. Gratuit et open source, pour Windows.",
+    creator: "@daryl_ngako",
+  },
 };
 
 export const viewport: Viewport = {

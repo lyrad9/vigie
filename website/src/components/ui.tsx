@@ -76,7 +76,7 @@ export function PrimaryButton({ children, icon, className = "", ...props }: Link
   return (
     <a
       {...props}
-      className={`group inline-flex h-14 items-center justify-center gap-3 rounded-[14px] bg-button px-7 font-display text-ui font-bold text-button-text shadow-button transition-[filter] duration-300 hover:brightness-110 ${className}`}
+      className={`group inline-flex h-14 items-center justify-center gap-3 rounded-[14px] bg-button px-7 font-display text-ui font-bold text-button-text shadow-button transition-[background-color,color,box-shadow] duration-300 hover:bg-[var(--signal-press)] hover:text-white hover:shadow-[var(--shadow-signal)] ${className}`}
     >
       {children}
       {icon}

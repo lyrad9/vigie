@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import type { TrustPage } from "./content.ts";
 
 // A page's openGraph replaces the layout's whole object, so every page spreads this base.
+// The share image itself comes from app/opengraph-image.png and app/twitter-image.png.
 export const openGraphBase = {
   type: "website",
   siteName: "Vigie",
   locale: "fr_FR",
-  images: ["/screens/app-light.png"],
 } satisfies Metadata["openGraph"];
 
 export function trustPageMetadata(page: TrustPage): Metadata {

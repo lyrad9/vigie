@@ -46,13 +46,13 @@ export function AskAI() {
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                className="group inline-flex h-14 w-full items-center justify-center gap-3 rounded-[14px] bg-band pr-5 pl-4 font-display text-ui font-bold text-band-text shadow-button transition-[filter] duration-300 hover:brightness-125 sm:w-auto dark:ring-1 dark:ring-white/10"
+                className="group inline-flex h-14 w-full items-center justify-center gap-3 rounded-[14px] bg-band pr-5 pl-4 font-display text-ui font-bold text-band-text shadow-button transition-[background-color,color,box-shadow] duration-300 hover:bg-[var(--signal-press)] hover:text-white hover:shadow-[var(--shadow-signal)] sm:w-auto dark:ring-1 dark:ring-white/10"
               >
                 <svg viewBox="0 0 24 24" className="size-5 shrink-0 text-white" fill="currentColor" aria-hidden="true">
                   <path d={MARKS[name]} />
                 </svg>
                 Demander à {name}
-                <span className="text-band-muted transition-colors group-hover:text-band-text">{Icon.external}</span>
+                <span className="text-band-muted transition-colors group-hover:text-white">{Icon.external}</span>
               </a>
             </li>
           ))}
