@@ -1,4 +1,5 @@
 import type { TrustPage } from "@/lib/content.ts";
+import { starCount } from "@/lib/github";
 import { Footer } from "./footer";
 import { Nav } from "./nav";
 import { Prose } from "./prose";
@@ -16,10 +17,10 @@ function Heading({ text }: { text: string }) {
 }
 
 /** About, Contact and Privacy: the same Markdown blocks agents read, set on a white sheet. */
-export function TrustPageView({ page }: { page: TrustPage }) {
+export async function TrustPageView({ page }: { page: TrustPage }) {
   return (
     <>
-      <Nav />
+      <Nav stars={await starCount()} />
       <main>
         <header className="mx-auto max-w-[50rem] px-5 pt-20 pb-10 sm:px-8 sm:pt-28 sm:pb-12">
           <Headline as="h1" className="text-[clamp(2rem,4vw,3rem)] leading-[1.08]">

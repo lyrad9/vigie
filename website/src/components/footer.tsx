@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { starCount } from "@/lib/github";
 import { site } from "@/lib/site";
 import { ThemeToggle } from "./client";
+import { StarButton } from "./star";
 import { Icon, Logo } from "./ui";
 
 const COLUMNS: { title: string; links: [string, string, boolean?][] }[] = [
@@ -35,7 +37,8 @@ const COLUMNS: { title: string; links: [string, string, boolean?][] }[] = [
 ];
 
 /** A white chart sheet signed with the wordmark, cut by the bottom edge. */
-export function Footer() {
+export async function Footer() {
+  const stars = await starCount();
   return (
     <footer className="px-3 pt-20 pb-3 sm:px-4 sm:pt-24">
       <div className="relative isolate overflow-hidden rounded-[28px] border border-hairline bg-card shadow-card">
@@ -56,13 +59,9 @@ export function Footer() {
                     <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" />
                   </svg>
                 </a>
-                <a
-                  href={site.repo}
-                  className="inline-flex h-11 items-center gap-2.5 rounded-xl border border-hairline bg-card px-4 text-small font-medium text-ink transition-[background-color,border-color] hover:border-hairline-strong hover:bg-wash"
-                >
-                  {Icon.github}
-                  lyrad9/vigie
-                </a>
+                <StarButton stars={stars} variant="footer">
+                  {site.repoSlug}
+                </StarButton>
               </div>
             </div>
 
