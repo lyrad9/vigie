@@ -115,7 +115,7 @@ export const TRUST_PAGES: TrustPage[] = [
       { type: "h2", text: "Liens vers d'autres services" },
       {
         type: "p",
-        text: "Les boutons « Télécharger » et « Voir le code » mènent à GitHub. Les boutons « Demander à ChatGPT », « Demander à Claude » et « Demander à Perplexity » ouvrent ces services avec une question sur Vigie déjà rédigée : rien n'est envoyé tant que vous ne cliquez pas, et leurs propres politiques s'appliquent ensuite.",
+        text: "Les boutons « Télécharger » et « Star sur GitHub » mènent à GitHub, et le nombre d'étoiles affiché est lu sur l'API publique de GitHub par le serveur du site, une fois par heure. Les boutons « Demander à ChatGPT », « Demander à Claude » et « Demander à Perplexity » ouvrent ces services avec une question sur Vigie déjà rédigée : rien n'est envoyé tant que vous ne cliquez pas, et leurs propres politiques s'appliquent ensuite.",
       },
       { type: "h2", text: "L'application Vigie" },
       {

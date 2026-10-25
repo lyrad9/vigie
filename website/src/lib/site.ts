@@ -1,5 +1,6 @@
 // Links and identity used across the site, the Markdown versions, llms.txt and JSON-LD.
-const REPO = "https://github.com/lyrad9/vigie";
+const SLUG = "lyrad9/vigie";
+const REPO = `https://github.com/${SLUG}`;
 
 export const site = {
   name: "Vigie",
@@ -7,6 +8,8 @@ export const site = {
   tagline: "Superviseur de serveurs de dev locaux pour agents IA",
   version: "0.1.6",
   repo: REPO,
+  // owner/name, for the GitHub API call behind the star count (src/lib/github.ts).
+  repoSlug: SLUG,
   download: `${REPO}/releases/latest`,
   releases: `${REPO}/releases`,
   issues: `${REPO}/issues`,

@@ -27,6 +27,7 @@
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux",
     "check": "node scripts/check-syntax.js",
+    "downloads": "node scripts/downloads.js",
     "test": "node --test test/core.test.js test/cli-tool.test.js test/features.test.js test/changelog.test.js test/leftover.test.js test/installer.test.js test/smoke.test.js test/restore.test.js test/short-path.test.js",
     "test:unit": "node --test test/core.test.js test/cli-tool.test.js test/features.test.js test/changelog.test.js test/leftover.test.js test/installer.test.js"
   },

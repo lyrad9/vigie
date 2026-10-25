@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { Nav } from "@/components/nav";
 import { Accent, Headline, Icon, Lede, PrimaryButton, QuietButton } from "@/components/ui";
+import { starCount } from "@/lib/github";
 
 export const metadata: Metadata = {
   title: "Page introuvable",
@@ -10,10 +11,10 @@ export const metadata: Metadata = {
 
 const link = "font-medium text-ink underline decoration-hairline-strong underline-offset-4 transition-colors hover:decoration-ink";
 
-export default function NotFound() {
+export default async function NotFound() {
   return (
     <>
-      <Nav />
+      <Nav stars={await starCount()} />
       <main className="mx-auto max-w-[50rem] px-5 pt-24 pb-8 text-center sm:px-8 sm:pt-32">
         <p className="font-mono text-small text-ink-faint">404</p>
         <Headline as="h1" className="mt-4 text-[clamp(2rem,4vw,3rem)] leading-[1.08]">
