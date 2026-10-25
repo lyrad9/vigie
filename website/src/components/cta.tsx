@@ -1,9 +1,12 @@
+import { starCount } from "@/lib/github";
 import { site } from "@/lib/site";
 import { RangeRings } from "./hero";
+import { StarButton } from "./star";
 import { Icon } from "./ui";
 
 /** The closing band: deep ink in both themes, range rings sweeping out of the corners. */
-export function ClosingCta() {
+export async function ClosingCta() {
+  const stars = await starCount();
   return (
     <section className="px-3 pt-8 pb-3 sm:px-4" aria-labelledby="cta-title">
       <div className="relative isolate overflow-hidden rounded-[28px] bg-band ring-1 ring-transparent dark:ring-white/10 px-5 py-24 text-center text-band-text sm:rounded-[44px] sm:py-32">
@@ -29,13 +32,9 @@ export function ClosingCta() {
             Télécharger pour Windows
             {Icon.download}
           </a>
-          <a
-            href={site.repo}
-            className="inline-flex h-14 items-center justify-center gap-2.5 rounded-[14px] border border-white/12 bg-band-raised px-6 font-display text-ui font-bold text-white transition-[border-color] duration-300 hover:border-white/25"
-          >
-            {Icon.github}
-            Voir le code
-          </a>
+          <StarButton stars={stars} variant="band">
+            Star sur GitHub
+          </StarButton>
         </div>
         <p className="mt-6 text-small text-band-muted">Installateur Windows · macOS et Linux depuis les sources</p>
       </div>

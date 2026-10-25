@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
+import { starCount } from "@/lib/github";
 import { site } from "@/lib/site";
 import { HeroVideo } from "./hero-video";
-import { Accent, Headline, Icon, Lede, PrimaryButton, QuietButton } from "./ui";
+import { StarButton } from "./star";
+import { Accent, Headline, Icon, Lede, PrimaryButton } from "./ui";
 
 const delay = (i: number) => ({ "--i": i }) as CSSProperties;
 
@@ -44,7 +46,8 @@ export function RangeRings({
   );
 }
 
-export function Hero() {
+export async function Hero() {
+  const stars = await starCount();
   return (
     <section className="relative isolate overflow-x-clip pt-14 sm:pt-20">
       <div className="mx-auto max-w-[75rem] px-5 text-center sm:px-8">
@@ -68,9 +71,9 @@ export function Hero() {
           <PrimaryButton href={site.download} icon={Icon.download}>
             Télécharger pour Windows
           </PrimaryButton>
-          <QuietButton href={site.repo} icon={Icon.github}>
-            Voir le code
-          </QuietButton>
+          <StarButton stars={stars} variant="hero">
+            Star sur GitHub
+          </StarButton>
         </div>
 
         <p className="rise mx-auto mt-5 flex max-w-[34rem] flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-small text-ink-soft" style={delay(3)}>

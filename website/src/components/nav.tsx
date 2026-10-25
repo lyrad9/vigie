@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { site } from "@/lib/site";
 import { ThemeToggle } from "./client";
+import { StarButton } from "./star";
 import { Icon, Logo } from "./ui";
 
 // Absolute anchors so the nav also works from /about, /contact, /privacy and the 404.
@@ -14,8 +15,11 @@ const LINKS = [
   ["/#faq", "Questions"],
 ];
 
-/** Floating bar, 16px from the top, sticky. On mobile the links fold into a sheet. */
-export function Nav() {
+/**
+ * Floating bar, 16px from the top, sticky. On mobile the links fold into a sheet.
+ * `stars` comes from the page that renders the bar, so the count is in the HTML (src/lib/github.ts).
+ */
+export function Nav({ stars }: { stars: number | null }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -48,13 +52,9 @@ export function Nav() {
 
         <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
           <ThemeToggle />
-          <a
-            href={site.repo}
-            className="hidden h-11 items-center gap-2 rounded-xl px-3.5 text-small font-medium text-ink transition-colors hover:bg-wash md:flex"
-          >
-            {Icon.github}
-            Code source
-          </a>
+          <StarButton stars={stars} variant="nav">
+            Star
+          </StarButton>
           <a href={site.download} className="download-cta group hidden h-11 items-center gap-2 rounded-xl px-4 font-display text-small font-bold sm:flex">
             Télécharger
             <svg viewBox="0 0 24 24" className="download-cta-arrow size-[18px]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -95,10 +95,9 @@ export function Nav() {
             Télécharger pour Windows
             {Icon.download}
           </a>
-          <a href={site.repo} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-hairline font-display font-bold text-ink">
-            {Icon.github}
-            Code source
-          </a>
+          <StarButton stars={stars} variant="sheet">
+            Star sur GitHub
+          </StarButton>
         </div>
       </div>
     </header>

@@ -1,5 +1,9 @@
 # Vigie
 
+[![Étoiles](https://img.shields.io/github/stars/lyrad9/vigie?style=flat&label=%E2%AD%90%20stars&color=0A60E0)](https://github.com/lyrad9/vigie/stargazers)
+[![Téléchargements](https://img.shields.io/github/downloads/lyrad9/vigie/total?style=flat&label=t%C3%A9l%C3%A9chargements&color=0A60E0)](https://github.com/lyrad9/vigie/releases)
+[![Dernière version](https://img.shields.io/github/v/release/lyrad9/vigie?style=flat&label=version&color=0A60E0)](https://github.com/lyrad9/vigie/releases/latest)
+
 **Un seul superviseur pour tous tes serveurs de dev locaux.**
 
 Tes agents (Claude Code, Codex, Cursor…) relancent sans arrêt le même `npm run dev`. Résultat :
@@ -200,6 +204,20 @@ votre-branche ──PR──▶ dev ──PR──▶ main ──tag vX.Y.Z─�
 | Windows installer | Construction de l'installateur à chaque push sur `dev` et `main` (téléchargeable en artefact) |
 
 En local : `npm run check && npm test`, et dans `website/` : `npm run lint && npm run typecheck && npm run build`.
+
+### Suivre l'adoption
+
+GitHub n'affiche plus les compteurs de téléchargement sur la page des releases. `npm run downloads`
+les lit sur l'API publique (aucun jeton nécessaire) et affiche chaque version, le total et le
+nombre d'étoiles ; `npm run downloads -- --json` sort les mêmes chiffres en JSON.
+
+| Colonne | Ce qu'elle compte |
+|---|---|
+| **Installateur** | Les `.exe` téléchargés : des installations, mais aussi les mises à jour automatiques, qui retéléchargent l'installateur. |
+| **Sondes** | `latest.yml`, les `.blockmap` et `changelog.json`, relus par chaque app installée à chaque vérification de mise à jour. Des vérifications, pas des personnes. |
+
+Les mêmes totaux alimentent les badges en haut de ce README, et le nombre d'étoiles s'affiche sur
+le site (barre de navigation, hero, bandeau de fin et pied de page).
 
 ## Limites connues
 
